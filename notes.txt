@@ -1,0 +1,22 @@
+
+
+# GAME TYPES
+threesome 3
+bigdozen 13
+centurion 100
+
+# API
+register-player email
+top-up-balance (player-id, amount) -> balance
+list-game-types -> [(game-type-id, game-type-name, game-type-desc)]
+join-game (game-type-id, player-email) -> game-id
+query-game game-id -> game-type-id, player-count, winner-number, winner-player-email
+query-game-server-event
+query-game-websocket
+
+
+
+
+# DOCS
+php api with auth
+https://developer.okta.com/blog/2019/03/08/simple-rest-api-php
