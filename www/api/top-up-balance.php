@@ -12,7 +12,7 @@ assert_or_die(is_numeric($amount) && $amount_float > 0, HttpCode::BAD_REQUEST, "
 
 require_once '../database.php';
 
-$db = open_db();
+$db = open_db($_POST['testing']);
 
 try {
   $db->beginTransaction();

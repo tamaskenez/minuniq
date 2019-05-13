@@ -9,7 +9,7 @@ assert_or_die(!empty($email), HttpCode::BAD_REQUEST, "Field 'email' is empty.");
 
 require_once '../database.php';
 
-$db = open_db();
+$db = open_db($_GET['testing']);
 
 try {
   $stmt = $db->prepare("SELECT * FROM player WHERE email=:email");

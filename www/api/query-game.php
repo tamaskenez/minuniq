@@ -9,7 +9,7 @@ assert_or_die(!empty($game_id), HttpCode::BAD_REQUEST, "Field 'game-id' is empty
 
 require_once '../database.php';
 
-$db = open_db();
+$db = open_db($_GET['testing']);
 
 try {
   $stmt = $db->prepare(

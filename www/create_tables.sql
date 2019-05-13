@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost:8889
--- Generation Time: May 13, 2019 at 11:10 AM
+-- Generation Time: May 13, 2019 at 01:53 PM
 -- Server version: 5.7.25
 -- PHP Version: 7.3.1
 
@@ -13,8 +13,6 @@ SET time_zone = "+00:00";
 --
 -- Database: `minuniq`
 --
-CREATE DATABASE IF NOT EXISTS `minuniq` DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci;
-USE `minuniq`;
 
 -- --------------------------------------------------------
 
@@ -26,7 +24,7 @@ CREATE TABLE `current_game` (
   `game_type_id` int(11) NOT NULL,
   `num_players` int(11) NOT NULL,
   `winner_number` int(11) DEFAULT NULL,
-  `game_id` int(11) NOT NULL
+  `game_id` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 --
@@ -34,9 +32,9 @@ CREATE TABLE `current_game` (
 --
 
 INSERT INTO `current_game` (`game_type_id`, `num_players`, `winner_number`, `game_id`) VALUES
-(0, 0, NULL, 0),
-(1, 0, NULL, 0),
-(2, 0, NULL, 0);
+(0, 0, NULL, NULL),
+(1, 0, NULL, NULL),
+(2, 0, NULL, NULL);
 
 -- --------------------------------------------------------
 

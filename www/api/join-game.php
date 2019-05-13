@@ -20,7 +20,7 @@ assert_or_die(is_valid_picked_number($picked_number),
 require_once '../database.php';
 require_once '../game_config.php';
 
-$db = open_db();
+$db = open_db($_POST['testing']);
 
 try {
   $db->beginTransaction();
