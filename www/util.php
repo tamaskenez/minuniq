@@ -12,17 +12,59 @@ class HttpCode {
 }
 
 function assert_or_die($condition, $code, $error) {
-  if (!condition) {
+  if (!$condition) {
     http_response_code($code);
     die(json_encode(array("error" => $error)));
   }
 }
 
 function assert_or_die_msg($condition, $code, $error, $message) {
-  if (!condition) {
+  if (!$condition) {
     http_response_code($code);
     die(json_encode(array("error" => $error, "message" => $message)));
   }
+}
+
+// method can be 'GET', 'POST' (form-data) and 'POSTX' (x-www-form-urlencoded)
+function curl_request($url, $method, $data) {
+  $curl = curl_init();
+  switch ($method)
+  {
+    case 'POST':
+      curl_setopt($curl, CURLOPT_POST, 1);
+      if ($data) {
+        curl_setopt($curl, CURLOPT_POSTFIELDS, $data);
+      }
+      break;
+    case 'POSTX':
+      curl_setopt($curl, CURLOPT_POST, 1);
+      if ($data) {
+        curl_setopt($curl, CURLOPT_POSTFIELDS, http_build_query($data));
+        curl_setopt($curl, CURLOPT_HTTPHEADER,
+          array('Content-Type: application/x-www-form-urlencoded'));
+      }
+      break;
+    case 'GET':
+      if ($data) {
+        $url = sprintf("%s?%s", $url, http_build_query($data));
+      }
+      break;
+    default:
+      die("Invalid request method: ". $method);
+  }
+
+  // curl_setopt($curl, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+  // curl_setopt($curl, CURLOPT_USERPWD, "username:password");
+
+  curl_setopt($curl, CURLOPT_URL, $url);
+  curl_setopt($curl, CURLOPT_RETURNTRANSFER, TRUE);
+
+  $transfer = curl_exec($curl);
+  $response = curl_getinfo($curl, CURLINFO_RESPONSE_CODE);
+
+  curl_close($curl);
+
+  return array('transfer' => $transfer, 'response' => $response);
 }
 
 ?>

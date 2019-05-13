@@ -62,7 +62,11 @@ function create_empty_test_db() {
 }
 
 function run_db_init_script($db) {
-  $commands = file_get_contents("create_tables.sql");
+  $path = $_SERVER['DOCUMENT_ROOT'] . '/create_tables.sql';
+  $commands = file_get_contents($path);
+  if ($commands === FALSE) {
+    die("Can't read file: $path");
+  }
   try {
     $db->exec($commands);
   } catch (Exception $exc) {

@@ -1,15 +1,17 @@
 <?php
 
-require '../delete_prelude.php';
+// delete-player is also POST request because in PHP the DELETE requests have
+// inferior support (content parsing).
+require '../post_prelude.php';
 require_once '../util.php';
 
-$email = htmlspecialchars(strip_tags($_DELETE['email']));
+$email = htmlspecialchars(strip_tags($_POST['email']));
 
 assert_or_die(!empty($email), HttpCode::BAD_REQUEST, "Field 'email' is empty.");
 
 require_once '../database.php';
 
-$db = open_db($_DELETE['testing']);
+$db = open_db($_POST['testing']);
 
 try {
   $db->beginTransaction();
