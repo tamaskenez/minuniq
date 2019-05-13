@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost:8889
--- Generation Time: May 12, 2019 at 10:06 PM
+-- Generation Time: May 13, 2019 at 11:10 AM
 -- Server version: 5.7.25
 -- PHP Version: 7.3.1
 
@@ -19,45 +19,46 @@ USE `minuniq`;
 -- --------------------------------------------------------
 
 --
--- Table structure for table `finished_games`
+-- Table structure for table `current_game`
 --
 
-CREATE TABLE `finished_games` (
+CREATE TABLE `current_game` (
+  `game_type_id` int(11) NOT NULL,
+  `num_players` int(11) NOT NULL,
+  `winner_number` int(11) DEFAULT NULL,
+  `game_id` int(11) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+--
+-- Dumping data for table `current_game`
+--
+
+INSERT INTO `current_game` (`game_type_id`, `num_players`, `winner_number`, `game_id`) VALUES
+(0, 0, NULL, 0),
+(1, 0, NULL, 0),
+(2, 0, NULL, 0);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `game_history`
+--
+
+CREATE TABLE `game_history` (
   `game_id` int(11) NOT NULL,
   `game_type_id` int(11) NOT NULL,
   `finished` tinyint(1) NOT NULL DEFAULT '0',
-  `winner_player_id` int(11) NOT NULL,
-  `winner_number` int(11) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `games`
---
-
-CREATE TABLE `games` (
-  `game_type_id` int(11) NOT NULL,
-  `participants` int(11) NOT NULL,
+  `winner_player_email` varchar(256) DEFAULT NULL,
   `winner_number` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
---
--- Dumping data for table `games`
---
-
-INSERT INTO `games` (`game_type_id`, `participants`, `winner_number`) VALUES
-(0, 0, NULL),
-(1, 0, NULL),
-(2, 0, NULL);
-
 -- --------------------------------------------------------
 
 --
--- Table structure for table `game_numbers`
+-- Table structure for table `game_picked_numbers`
 --
 
-CREATE TABLE `game_numbers` (
+CREATE TABLE `game_picked_numbers` (
   `game_type_id` int(11) NOT NULL,
   `player_id` int(11) NOT NULL,
   `picked_number` int(11) NOT NULL
@@ -72,8 +73,7 @@ CREATE TABLE `game_numbers` (
 CREATE TABLE `player` (
   `player_id` int(11) NOT NULL,
   `email` varchar(256) NOT NULL,
-  `balance` decimal(12,2) NOT NULL DEFAULT '0.00',
-  `participation` bit(64) NOT NULL DEFAULT b'0' COMMENT 'Bit mask, i-th bit is set if player participating in game of type i.'
+  `balance` decimal(12,2) NOT NULL DEFAULT '0.00'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 --
@@ -81,33 +81,39 @@ CREATE TABLE `player` (
 --
 
 --
--- Indexes for table `finished_games`
+-- Indexes for table `current_game`
 --
-ALTER TABLE `finished_games`
-  ADD PRIMARY KEY (`game_id`);
-
---
--- Indexes for table `games`
---
-ALTER TABLE `games`
+ALTER TABLE `current_game`
   ADD PRIMARY KEY (`game_type_id`);
 
 --
--- Indexes for table `game_numbers`
+-- Indexes for table `game_history`
 --
-ALTER TABLE `game_numbers`
-  ADD KEY `game_type_id_ix` (`game_type_id`);
+ALTER TABLE `game_history`
+  ADD PRIMARY KEY (`game_id`);
+
+--
+-- Indexes for table `game_picked_numbers`
+--
+ALTER TABLE `game_picked_numbers`
+  ADD UNIQUE KEY `game_type_player_ix` (`game_type_id`,`player_id`);
 
 --
 -- Indexes for table `player`
 --
 ALTER TABLE `player`
   ADD PRIMARY KEY (`player_id`),
-  ADD UNIQUE KEY `email_ix` (`email`);
+  ADD UNIQUE KEY `email_ix` (`email`) USING HASH;
 
 --
 -- AUTO_INCREMENT for dumped tables
 --
+
+--
+-- AUTO_INCREMENT for table `game_history`
+--
+ALTER TABLE `game_history`
+  MODIFY `game_id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `player`
