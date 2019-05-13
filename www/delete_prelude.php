@@ -8,7 +8,7 @@ header("Access-Control-Allow-Methods: POST");
 header("Access-Control-Max-Age: 3600");
 header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
 
-assert_or_die($_SERVER['REQUEST_METHOD'] === 'POST',
-  HttpCode::METHOD_NOT_ALLOWED, "Only POST is allowed.");
+assert_or_die($_SERVER['REQUEST_METHOD'] === 'DELETE',
+  HttpCode::METHOD_NOT_ALLOWED, "Only DELETE is allowed.");
 
 ?>

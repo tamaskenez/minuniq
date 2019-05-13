@@ -15,7 +15,7 @@ function open_db() {
 }
 
 function select_player_for_update_or_null($db, $email) {
-  $stmt = $db->prepare("SELECT player_id, balance, participation FROM player WHERE email=:email FOR UPDATE");
+  $stmt = $db->prepare("SELECT player_id, balance FROM player WHERE email=:email FOR UPDATE");
   $stmt->bindParam(':email', $email);
 
   $r = $stmt->execute();
@@ -27,21 +27,17 @@ function select_player_for_update_or_null($db, $email) {
   }
   $player_id = $row[0];
   $balance = $row[1];
-  $participation = $row[2];
 
   assert_or_die(is_numeric($balance),
     HttpCode::INTERNAL_SERVER_ERROR, "Player balance is not numeric in database.");
-  assert_or_die(is_int($participation),
-    HttpCode::INTERNAL_SERVER_ERROR, "Player participation bit mask is not an integer in database.");
 
   return array(
     'player_id' => $player_id,
-    'balance' => floatval($balance),
-    'participation' => intval($participation));
+    'balance' => floatval($balance));
 }
 
 function select_player_balance_for_update_or_null($db, $email) {
-  $bp = select_player_balance_participation_for_update_or_null($db, $email);
+  $bp = select_player_for_update_or_null($db, $email);
   return is_null($bp) ? NULL : $bp['balance'];
 }
 

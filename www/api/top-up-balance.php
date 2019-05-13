@@ -15,9 +15,6 @@ require_once '../database.php';
 $db = open_db();
 
 try {
-  $stmt = $db->prepare("SELECT balance FROM player WHERE email=:email FOR UPDATE");
-  $stmt->bindParam(':email', $email);
-
   $db->beginTransaction();
 
   $old_balance = select_player_balance_for_update_or_null($db, $email);
