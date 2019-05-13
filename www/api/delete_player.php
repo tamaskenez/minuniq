@@ -1,6 +1,6 @@
 <?php
 
-require '../post_prelude.php';
+require '../delete_prelude.php';
 require_once '../util.php';
 
 $email = htmlspecialchars(strip_tags($_POST['email']));

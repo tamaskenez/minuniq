@@ -45,4 +45,9 @@ function select_player_balance_for_update_or_null($db, $email) {
   return is_null($bp) ? NULL : $bp['balance'];
 }
 
+function checked_execute_query($stmt) {
+  $r = $stmt->execute();
+  assert_or_die_msg($r, HttpCode::SERVICE_UNAVAILABLE, "Can't execute query.", stmt->errorInfo()[2]);
+}
+
 ?>

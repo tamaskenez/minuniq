@@ -15,8 +15,7 @@ try {
   $stmt = $db->prepare("SELECT * FROM player WHERE email=:email");
   $stmt->bindParam(':email', $email);
 
-  $r = $stmt->execute();
-  assert_or_die_msg($r, HttpCode::SERVICE_UNAVAILABLE, "Can't execute query.", $stmt->errorInfo()[2]);
+  checked_execute_query($stmt);
 
   $row = $stmt->fetch(PDO::FETCH_ASSOC);
   assert_or_die($row, HttpCode::NOT_FOUND, "Player not found.");

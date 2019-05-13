@@ -29,8 +29,7 @@ try {
   $new_balance = $old_balance + $amount_float;
   $stmt->bindParam(':new_balance', $new_balance);
 
-  $r = $stmt->execute();
-  assert_or_die_msg($r, HttpCode::SERVICE_UNAVAILABLE, "Can't execute query.", $stmt->errorInfo()[2]);
+  checked_execute_query($stmt);
 
   $db->commit();
   http_response_code(HttpCode::OK);
