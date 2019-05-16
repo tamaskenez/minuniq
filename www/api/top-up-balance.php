@@ -1,7 +1,7 @@
 <?php
 
 require '../post_prelude.php';
-require_once '../util.php'
+require_once '../util.php';
 
 $email = htmlspecialchars(strip_tags($_POST['email']));
 $amount = htmlspecialchars(strip_tags($_POST['amount']));
@@ -27,6 +27,8 @@ try {
   $stmt->bindParam(':new_balance', $new_balance);
 
   checked_execute_query($stmt);
+  $stmt = $db->query("SELECT * FROM player");
+  $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
   $db->commit();
   http_response_code(HttpCode::OK);

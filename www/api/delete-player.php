@@ -14,6 +14,7 @@ require_once '../database.php';
 $db = open_db($_POST['testing']);
 
 try {
+
   $db->beginTransaction();
   $player = select_player_for_update_or_null($db, $email);
   assert_or_die(!is_null($player),
@@ -23,7 +24,9 @@ try {
   $stmt = $db->prepare(
     "SELECT COUNT(1) FROM game_picked_numbers" .
     "  WHERE player_id=:player_id");
+  $stmt->bindParam(':player_id', $player_id);
   checked_execute_query($stmt);
+
   $row = $stmt->fetch(PDO::FETCH_NUM);
   assert_or_die($row,
     HttpCode::SERVICE_UNAVAILABLE, "Can't count player's picked numbers.");
