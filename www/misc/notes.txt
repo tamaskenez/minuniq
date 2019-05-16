@@ -17,3 +17,5 @@ TODO:
 - maybe selecting the test db could be better
 - deployment
 - clean-up (docs, comments, read challenge)
+- polling, long-polling, websockets
+- multiplyable game servers
