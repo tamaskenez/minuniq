@@ -5,13 +5,11 @@
 require '../post_prelude.php';
 require_once '../util.php';
 
-$email = htmlspecialchars(strip_tags($_POST['email']));
-
-assert_or_die(!empty($email), HttpCode::BAD_REQUEST, "Field 'email' is empty.");
+$email = nonempty_post_arg('email');
 
 require_once '../database.php';
 
-$db = open_db($_POST['testing']);
+$db = open_db();
 
 try {
 
@@ -19,6 +17,8 @@ try {
   $player = select_player_for_update_or_null($db, $email);
   assert_or_die(!is_null($player),
     HttpCode::NOT_FOUND, "Player not found.");
+
+  $player_id = $player['player_id'];
 
   // Check if player is playing.
   $stmt = $db->prepare(

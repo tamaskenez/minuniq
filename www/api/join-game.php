@@ -2,32 +2,32 @@
 
 require '../post_prelude.php';
 require_once '../util.php';
+require_once '../game_config.php';
 
 // Validate arguments.
-$email = htmlspecialchars(strip_tags($_POST['email']));
-$game_type_id_string = htmlspecialchars(strip_tags($_POST['game-type-id']));
+$email = nonempty_post_arg('email');
+$game_type_id_string = nonempty_post_arg('game-type-id');
 $game_type_id = intval($game_type_id_string);
-$picked_number_string = htmlspecialchars(strip_tags($_POST['picked-number']));
+$picked_number_string = nonempty_post_arg('picked-number');
 $picked_number = intval($picked_number_string);
 
-assert_or_die(!empty($email), HttpCode::BAD_REQUEST, "Field 'email' is empty.");
 assert_or_die(
-  is_int($game_type_id_string) && $array_key_exists($game_type_id, $game_types),
-  HttpCode(BAD_REQUEST), "Field 'game-type-id' is not valid.");
+  is_numeric($game_type_id_string) && array_key_exists($game_type_id, $GAME_TYPES),
+  HttpCode::BAD_REQUEST, "Field 'game-type-id' is not valid.");
 assert_or_die(is_valid_picked_number($picked_number),
-  HttpCode(BAD_REQUEST), "Field 'picked-number' is not valid.");
+  HttpCode::BAD_REQUEST, "Field 'picked-number' is not valid.");
 
 require_once '../database.php';
 require_once '../game_config.php';
 
-$db = open_db($_POST['testing']);
+$db = open_db();
 
 try {
   $db->beginTransaction();
 
   // Lock player's row and verify if they're allowed to participate
   $player = select_player_for_update_or_null($db, $email);
-  assert_or_die(is_null($player), HttpCode::NOT_FOUND, "Player not found.");
+  assert_or_die(!is_null($player), HttpCode::NOT_FOUND, "Player not found.");
 
   $new_balance = round($player['balance'] - $BET_AMOUNT, 2);
   assert_or_die($new_balance > 0,
@@ -43,6 +43,7 @@ try {
   $stmt->bindParam(':player_id', $player_id);
   checked_execute_query($stmt);
   $row = $stmt->fetch(PDO::FETCH_NUM);
+
   assert_or_die($row,
     HttpCode::SERVICE_UNAVAILABLE, "Can't determine if player is in game.");
   $player_in_game = $row[0] != 0;
@@ -63,7 +64,7 @@ try {
   assert_or_die($row, HttpCode::INTERNAL_SERVER_ERROR,
     "Row not found in table 'games'.");
 
-  assert_or_die(is_int($row[0]),
+  assert_or_die(is_numeric($row[0]),
     HttpCode::INTERNAL_SERVER_ERROR, "Field 'num_players' is not an integer.");
   $old_num_players = intval($row[0]);
   $old_winner_number = $row[1];
@@ -74,7 +75,7 @@ try {
     "INSERT INTO game_picked_numbers (game_type_id, player_id, picked_number)" .
     "  VALUES (:game_type_id, :player_id, :picked_number)");
   $stmt->bindParam(':game_type_id', $game_type_id);
-  $stmt->bindParam(':player_id', $player_id]);
+  $stmt->bindParam(':player_id', $player_id);
   $stmt->bindParam(':picked_number', $picked_number);
   checked_execute_query($stmt);
 
@@ -95,7 +96,7 @@ try {
     $new_winner_number = $picked_number;
     $stmt = $db->prepare(
       "INSERT INTO game_history (game_type_id)" .
-      "  VALUES (:game_type_id)";
+      "  VALUES (:game_type_id)");
     $stmt->bindParam(':game_type_id', $game_type_id);
     checked_execute_query($stmt);
 
@@ -136,7 +137,7 @@ try {
     }
   }
 
-  if ($new_winner_number !== $winner_number) {
+  if ($new_winner_number !== $old_winner_number) {
     // TODO: Winner number changed.
   }
 
@@ -144,25 +145,26 @@ try {
   $new_num_players = $old_num_players + 1;
   $maybe_update_game_id = $old_num_players == 0 ? ", game_id=:game_id" : "";
   $stmt = $db->prepare(
-    "UPDATE games" .
+    "UPDATE current_game" .
     "  SET num_players=:new_num_players, winner_number=:new_winner_number" .
     "  $maybe_update_game_id" .
     "  WHERE game_type_id=:game_type_id");
   $stmt->bindParam(':new_num_players', $new_num_players);
   $stmt->bindParam(':new_winner_number', $new_winner_number);
+  $stmt->bindParam(':game_type_id', $game_type_id);
   if ($old_num_players == 0) {
     $stmt->bindParam(':game_id', $game_id);
   }
+
   checked_execute_query($stmt);
 
-  $total_num_players = $game_types[$game_type_id][$new_num_players];
+  $total_num_players = $GAME_TYPES[$game_type_id]['num_players'];
 
   if ($new_num_players >= $total_num_players) {
     // This game has ended, update all tables.
 
     assert_or_die($total_num_players == $new_num_players,
       HttpCode::INTERNAL_SERVER_ERROR, "Too many players in game.");
-
 
     // Calculate winner number and player.
     if (is_null($new_winner_number)) {
@@ -173,14 +175,14 @@ try {
       $stmt = $db->prepare(
         "SELECT email FROM player, game_picked_numbers" .
         "  WHERE game_type_id=:game_type_id AND picked_number=:picked_number" .
-        "    AND player.player_id=game_picked_numbers.player_id);
+        "    AND player.player_id=game_picked_numbers.player_id");
       $stmt->bindParam(':game_type_id', $game_type_id);
       $stmt->bindParam(':picked_number', $new_winner_number);
       checked_execute_query($stmt);
       $row = $stmt->fetch(PDO::FETCH_NUM);
-      assert_or_die(!$row,
+      assert_or_die($row === FALSE,
         HttpCode::INTERNAL_SERVER_ERROR, "Winner email not found.");
-        $winner_player_email = $row[0];
+      $winner_player_email = $row[0];
     }
 
     // Reset game_picked_numbers.

@@ -3,13 +3,11 @@
 require '../get_prelude.php';
 require_once '../util.php';
 
-$game_id = htmlspecialchars(strip_tags($_GET['game-id']));
-
-assert_or_die(!empty($game_id), HttpCode::BAD_REQUEST, "Field 'game-id' is empty.");
+$game_id = nonempty_get_arg('game-id');
 
 require_once '../database.php';
 
-$db = open_db($_GET['testing']);
+$db = open_db();
 
 try {
   $stmt = $db->prepare(

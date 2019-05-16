@@ -7,17 +7,11 @@ require_once '../test_functions.php';
 
 header( 'Content-type: text/html; charset=utf-8' );
 
-function progress($msg) {
-  echo "$msg<br>";
-  flush();
-  ob_flush();
-}
-
 progress("-- Creating empty test database.");
 create_empty_test_db();
 
 progress("-- Initialize database.");
-$db = open_db(TRUE);
+$db = open_db_1(TRUE);
 run_db_init_script($db);
 
 progress("-- Verify empty database.");

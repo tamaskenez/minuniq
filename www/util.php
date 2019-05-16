@@ -64,7 +64,27 @@ function curl_request($url, $method, $data) {
 
   curl_close($curl);
 
+  if ($transfer === FALSE) {
+    return FALSE;
+  }
+
   return array('transfer' => $transfer, 'response' => $response);
+}
+
+function nonempty_post_arg($name) {
+  assert_or_die(isset($_POST[$name]),
+    HttpCode::BAD_REQUEST, "Field '$name' is missing.");
+  $r = htmlspecialchars(strip_tags($_POST[$name]));
+  assert_or_die($r != "", HttpCode::BAD_REQUEST, "Field '$name' is empty.");
+  return $r;
+}
+
+function nonempty_get_arg($name) {
+  assert_or_die(isset($_GET[$name]),
+    HttpCode::BAD_REQUEST, "Field '$name' is missing.");
+  $r = htmlspecialchars(strip_tags($_GET[$name]));
+  assert_or_die(!empty($r), HttpCode::BAD_REQUEST, "Field '$name' is empty.");
+  return $r;
 }
 
 ?>

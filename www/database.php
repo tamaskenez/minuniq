@@ -8,9 +8,14 @@ class DbConfig {
   const PASSWORD = "root";
   const DB_NAME = "minuniq";
   const TEST_DB_NAME = "minuniq_test";
+  const USE_TEST_DB_FIELD = "use-test-db";
 }
 
-function open_db($test) {
+class MySql {
+  const ER_DUP_ENTRY = 1062;
+}
+
+function open_db_1($test) {
   $name = $test ? DbConfig::TEST_DB_NAME : DbConfig::DB_NAME;
 
   $host = DbConfig::HOST;
@@ -25,6 +30,18 @@ function open_db($test) {
       "error" => "Can't connect to database.",
       "message" => $exc->getMessage())));
   }
+}
+
+function open_db() {
+  if (isset($_POST[DbConfig::USE_TEST_DB_FIELD])) {
+    $test = $_POST[DbConfig::USE_TEST_DB_FIELD];
+  } else if (isset($_GET[DbConfig::USE_TEST_DB_FIELD])) {
+    $test = $_GET[DbConfig::USE_TEST_DB_FIELD];
+  } else {
+    $test = FALSE;
+  }
+
+  return open_db_1($test);
 }
 
 function open_connection_without_db() {
@@ -80,11 +97,12 @@ function select_player_for_update_or_null($db, $email) {
   $stmt->bindParam(':email', $email);
 
   $r = $stmt->execute();
-  assert_or_die($r,
+  assert_or_die($r !== FALSE,
     HttpCode::SERVICE_UNAVAILABLE, "Can't execute query.", $stmt->errorInfo()[2]);
 
   $row = $stmt->fetch(PDO::FETCH_NUM);
-  if (!$row) {
+
+  if ($row === FALSE) {
     return NULL;
   }
   $player_id = $row[0];
@@ -105,14 +123,14 @@ function select_player_balance_for_update_or_null($db, $email) {
 
 function checked_execute_query($stmt) {
   $r = $stmt->execute();
-  assert_or_die_msg($r,
+  assert_or_die_msg($r !== FALSE,
     HttpCode::SERVICE_UNAVAILABLE, "Can't execute query.", $stmt->errorInfo()[2]);
 }
 
 function db_table_size($db, $table) {
   $stmt = $db->query("SELECT COUNT(1) FROM $table");
   $row = $stmt ? $stmt->fetch(PDO::FETCH_NUM) : FALSE;
-  if (!$row) {
+  if ($row === FALSE) {
     die("Can't query table size for " . $table);
   }
   return $row[0];

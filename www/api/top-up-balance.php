@@ -3,16 +3,15 @@
 require '../post_prelude.php';
 require_once '../util.php';
 
-$email = htmlspecialchars(strip_tags($_POST['email']));
-$amount = htmlspecialchars(strip_tags($_POST['amount']));
+$email = nonempty_post_arg('email');
+$amount = nonempty_post_arg('amount');
 $amount_float = floatval($amount);
 
-assert_or_die(!empty($email), HttpCode::BAD_REQUEST, "Field 'email' is empty.");
 assert_or_die(is_numeric($amount) && $amount_float > 0, HttpCode::BAD_REQUEST, "Field 'amount' is not a positive number.");
 
 require_once '../database.php';
 
-$db = open_db($_POST['testing']);
+$db = open_db();
 
 try {
   $db->beginTransaction();
