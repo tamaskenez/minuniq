@@ -3,17 +3,17 @@
 $GAME_TYPES = array(
   array(
     "name" => "threesome",
-    "num_players" => 3,
+    "num-players" => 3,
     "description" => "Quick game against 2 opponents."
   ),
   array(
     "name" => "longdozen",
-    "num_players" => 13,
+    "num-players" => 13,
     "description" => "Serious game, serious prize against 12 opponents."
   ),
   array(
     "name" => "bigwin",
-    "num_players" => 101,
+    "num-players" => 101,
     "description" => "Win big against a hundred!"
   )
 );

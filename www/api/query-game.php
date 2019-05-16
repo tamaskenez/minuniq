@@ -2,8 +2,13 @@
 
 require '../get_prelude.php';
 require_once '../util.php';
+require_once '../game_config.php';
 
-$game_id = nonempty_get_arg('game-id');
+$game_id_string = nonempty_get_arg('game-id');
+$game_id = intval($game_id_string);
+assert_or_die(
+  is_numeric($game_id_string) || $game_id_string != $game_id,
+  HttpCode::BAD_REQUEST, "Field 'game-id' is not valid.");
 
 require_once '../database.php';
 
@@ -23,11 +28,11 @@ try {
     $num_players = $row[1];
     $winner_number = $row[2];
     $finished = FALSE;
-    $winner_player_id = NULL;
+    $winner_email = NULL;
   } else {
     // Try as finished game.
     $stmt = $db->prepare(
-      "SELECT game_type_id, finished, winner_player_id, winner_number" .
+      "SELECT game_type_id, finished, winner_player_email, winner_number" .
       "  FROM game_history" .
       "  WHERE game_id=:game_id");
     $stmt->bindParam(':game_id', $game_id);
@@ -39,26 +44,23 @@ try {
     assert_or_die($finished,
       HttpCode::INTERNAL_SERVER_ERROR,
       "Unfinished game not found in current games.");
-    $winner_player_id = $row[2]
+    $winner_email = $row[2];
     $winner_number = $row[3];
+    $num_players = $GAME_TYPES[$game_type_id]['num-players'];
   }
 
   $response = array(
-    "game_type_id" => $game_type_id,
-    "num_players" => $num_players,
+    "game-type-id" => $game_type_id,
+    "num-players" => $num_players,
     "finished" => $finished
   );
 
-  if (!is_null($winner_player_id)) {
-    $response['winner_player_id'] = $winner_player_id;
-    $response['winner_number'] = $winner_number;
+  if (!is_null($winner_email)) {
+    $response['winner-email'] = $winner_email;
+    $response['winner-number'] = $winner_number;
     assert_or_die(!is_null($winner_number),
       HttpCode::INTERNAL_SERVER_ERROR,
       "Game has winner but no winner number.");
-  } else {
-    assert_or_die(is_null($winner_number),
-      HttpCode::INTERNAL_SERVER_ERROR,
-      "Game has winner number number but no winner.");
   }
 
   http_response_code(HttpCode::OK);

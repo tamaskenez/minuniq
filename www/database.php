@@ -123,6 +123,13 @@ function select_player_balance_for_update_or_null($db, $email) {
 
 function checked_execute_query($stmt) {
   $r = $stmt->execute();
+  if ($r === FALSE) {
+    print "<br>DPB<br>";
+    debug_print_backtrace();
+    print "<br>";
+    var_dump($stmt->errorInfo());
+    print "<br>";
+  }
   assert_or_die_msg($r !== FALSE,
     HttpCode::SERVICE_UNAVAILABLE, "Can't execute query.", $stmt->errorInfo()[2]);
 }

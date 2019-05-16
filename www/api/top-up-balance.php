@@ -29,7 +29,8 @@ try {
   $stmt = $db->query("SELECT * FROM player");
   $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
-  $db->commit();
+  $r = $db->commit();
+  assert_or_die($r === TRUE, HttpCode::SERVICE_UNAVAILABLE, "Commit failed.");
   http_response_code(HttpCode::OK);
 } catch(Exception $exc){
   http_response_code(HttpCode::SERVICE_UNAVAILABLE);

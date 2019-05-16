@@ -5,16 +5,12 @@ require_once '../database.php';
 require_once '../game_config.php';
 require_once '../test_functions.php';
 
-header( 'Content-type: text/html; charset=utf-8' );
 
 function pr($x) {
   print("<br>BEGIN<br>");
   var_dump($x);
   print("<br>END<br>");
 }
-
-$http_host = $_SERVER['HTTP_HOST'];
-progress("Full API test, HTTP_HOST = $http_host");
 
 function create_open_empty_test_db() {
   create_empty_test_db();
@@ -45,6 +41,8 @@ function test_missing_empty_invalid_email($method, $api, $invalid_email, $args) 
 
 // Full cycle for a player.
 function player_crud_test() {
+  global $MAX_PICKED_NUMBER;
+
   progress("-- Player CRUD tests.");
   $db = create_open_empty_test_db();
 
@@ -102,19 +100,51 @@ function player_crud_test() {
   $r = test_curl_request('GET', 'get-player', array('email' => $email));
   check($r['response'] == HttpCode::NOT_FOUND, 'player/delete-missing');
 
-  // Delete player from ongoing game.
-  $tn = 'delete-player/ongoing game';
 
   $r = test_curl_request('POST', 'register-player', array('email' => $email));
   check($r['response'] == HttpCode::CREATED, 'player');
   $r = test_curl_request('POST', 'top-up-balance', array('email' => $email, 'amount' => 123.45));
   check($r['response'] == HttpCode::OK, 'player/top-up');
 
-  $r = test_curl_request('POST', 'join-game', array(
+  $tn = 'join-game-corner-cases';
+
+  $join_game_args = array(
     'email' => $email,
     'game-type-id' => 0,
     'picked-number' => 1
-  ));
+  );
+
+  test_missing_empty_invalid_email('POST', 'join-game', "$email.", $join_game_args);
+
+  $args = $join_game_args;
+  unset($args['game-type-id']);
+  $r = test_curl_request('POST', 'join-game', $args);
+  check($r['response'] == HttpCode::BAD_REQUEST, "$tn/missing game-type-id");
+
+  $args = $join_game_args;
+  $args['game-type-id'] = 99999;
+  $r = test_curl_request('POST', 'join-game', $args);
+  check($r['response'] == HttpCode::BAD_REQUEST, "$tn/invalid game-type-id");
+
+  $args = $join_game_args;
+  unset($args['picked-number']);
+  $r = test_curl_request('POST', 'join-game', $args);
+  check($r['response'] == HttpCode::BAD_REQUEST, "$tn/missing picked-number");
+
+  $args = $join_game_args;
+  $args['picked-number'] = $MAX_PICKED_NUMBER + 1;
+  $r = test_curl_request('POST', 'join-game', $args);
+  check($r['response'] == HttpCode::BAD_REQUEST, "$tn/invalid picked-number");
+
+  $args = $join_game_args;
+  $args['picked-number'] = 0;
+  $r = test_curl_request('POST', 'join-game', $args);
+  check($r['response'] == HttpCode::BAD_REQUEST, "$tn/zero picked-number");
+
+  // Delete player from ongoing game.
+  $tn = 'delete-player/ongoing game';
+
+  $r = test_curl_request('POST', 'join-game', $join_game_args);
   check($r['response'] == HttpCode::OK, $tn);
 
   $r = test_curl_request('POST', 'delete-player', array('email' => $email));
@@ -141,13 +171,171 @@ function static_queries() {
   check($jr == $MAX_PICKED_NUMBER, $tn);
 }
 
-function game_test($game_type_id) {
-  progress("-- Test game type $game_type_id");
+function game_test_with_picked_numbers($game_type_id, $players, $tn) {
+  progress("-- $tn");
+  global $GAME_TYPES, $BET_AMOUNT;
+
+  $NP = $GAME_TYPES[$game_type_id]['num-players'];
+  check($NP == count($players), $tn);
+
   $db = create_open_empty_test_db();
+  $i = 100;
+  foreach($players as $k => $v) {
+    $email = "email-$k";
+    $amount = $i;
+    $i = $i + 1;
+
+    $players[$k]['email'] = $email;
+    $players[$k]['balance'] = $amount;
+
+    $r = test_curl_request('POST', 'register-player', array('email' => $email));
+    check($r['response'] == HttpCode::CREATED, $tn);
+
+    $r = test_curl_request('POST', 'top-up-balance', array(
+      'email' => $email, 'amount' => $amount));
+    check($r['response'] == HttpCode::OK, 'player/top-up');
+    check_player_balance($email, $amount, $tn);
+  }
+
+  $numbers = array();
+  $game_id = NULL;
+  $num_players = 0;
+  $winner_email = NULL;
+  foreach($players as $k => $v) {
+    $picked_number = $v['picked-number'];
+    $args = array(
+      'email' => $v['email'],
+      'game-type-id' => $game_type_id,
+      'picked-number' => $picked_number);
+    $r = test_curl_request('POST', 'join-game', $args);
+    check($r['response'] == HttpCode::OK, $tn);
+    ++$num_players;
+    $jr = json_decode($r['transfer'], TRUE);
+    check(isset($jr['game-id']), $tn);
+    if (is_null($game_id)) {
+      $game_id = $jr['game-id'];
+    } else {
+      check($jr['game-id'] == $game_id, $tn);
+    }
+    if (isset($numbers[$picked_number])) {
+      $numbers[$picked_number] = $numbers[$picked_number] + 1;
+    } else {
+      $numbers[$picked_number] = 1;
+    }
+
+    $r = test_curl_request('GET', 'query-game', array(
+      "game-id" => $game_id
+    ));
+    check($r['response'] == HttpCode::OK, $tn);
+    $jr = json_decode($r['transfer'], TRUE);
+    check($jr['game-type-id'] == $game_type_id, $tn . '/invalid game-type-id');
+    check($jr['num-players'] == $num_players, $tn . '/invalid num-players');
+
+    if ($num_players == $NP) {
+      check($jr['finished'] == 1, $tn . '/invalid finished');
+      ksort($numbers);
+      $winner_number = NULL;
+      foreach($numbers as $k => $v) {
+        if ($v == 1) {
+          $winner_number = $k;
+          break;
+        }
+      }
+      if (is_null($winner_number)) {
+        check(!isset($jr['winner_number']), $tn . '/winner number set');
+        check(!isset($jr['winner_email']), $tn . '/winner email set');
+      } else {
+        foreach($players as $k => $v) {
+          if ($v['picked-number'] == $winner_number) {
+            $winner_email = $v['email'];
+            break;
+          }
+        }
+        check(!is_null($winner_email), $tn . '/no winner email');
+        check($winner_email == $jr['winner-email'],
+          $tn . '/invalid winner email');
+        check($winner_number == $jr['winner-number'],
+          $tn . '/invalid winner number');
+      }
+    } else {
+      check($num_players < $NP, $tn . '/invalid num-players');
+      check($jr['finished'] == 0, $tn . '/invalid finished');
+    }
+  }
+  foreach($players as $k => $v) {
+    if (is_null($winner_email) || $v['email'] != $winner_email) {
+      $expected_balance = $v['balance'] - $BET_AMOUNT;
+    } else {
+      $expected_balance = $v['balance'] + $BET_AMOUNT * ($NP - 1);
+    }
+    check_player_balance($v['email'], $expected_balance, $tn);
+  }
 }
+
+function game_test_exhaustive_3_and_corners() {
+  global $GAME_TYPES;
+
+  $NP = $GAME_TYPES[0]['num-players'];
+  check($NP == 3, 'game-test-exhaustive-3');
+  $i = 0;
+
+  for($a = 1; $a <= 3; ++$a) {
+    for($b = 1; $b <= 3; ++$b) {
+      for($c = 1; $c <= 3; ++$c) {
+        game_test_with_picked_numbers(0, array(
+            0 => array('picked-number' => $a),
+            1 => array('picked-number' => $b),
+            2 => array('picked-number' => $c)),
+          "Exhaustive 3-player game test/$i");
+          ++$i;
+      }
+    }
+  }
+
+  progress('-- query-game corner cases');
+  $tn = 'query-game-corner-cases';
+
+  $r = test_curl_request('GET', 'query-game', array());
+  check($r['response'] == HttpCode::BAD_REQUEST, "$tn/missing game-id");
+
+  $r = test_curl_request('GET', 'query-game', array('game-id' => ''));
+  check($r['response'] == HttpCode::BAD_REQUEST, "$tn/empty game-id");
+
+  $r = test_curl_request('GET', 'query-game', array('game-id' => 'nosuch'));
+  check($r['response'] == HttpCode::BAD_REQUEST, "$tn/invalid game-id 1");
+
+  $r = test_curl_request('GET', 'query-game', array('game-id' => '1 nosuch'));
+  check($r['response'] == HttpCode::BAD_REQUEST, "$tn/invalid game-id 2");
+
+  $r = test_curl_request('GET', 'query-game', array('game-id' => '2'));
+  check($r['response'] == HttpCode::NOT_FOUND, "$tn/invalid game-id 3");
+}
+
+function game_test($game_type_id) {
+  global $GAME_TYPES, $MAX_PICKED_NUMBER;
+  $NUM_GAMES_PER_TYPE = 4;
+  $NP = $GAME_TYPES[$game_type_id]['num-players'];
+  srand(1);
+  for($j = 0; $j < $NUM_GAMES_PER_TYPE; ++$j) {
+    $players = array();
+    for($i = 0; $i < $NP; ++$i) {
+      $picked_number = rand(1, $NP);
+      $players[$i] = array('picked-number' => $picked_number);
+    }
+    game_test_with_picked_numbers($game_type_id, $players,
+      "Random game test $NP players #$j");
+  }
+}
+
+error_log("Start test.");
+header( 'Content-type: text/html; charset=utf-8' );
+$http_host = $_SERVER['HTTP_HOST'];
+progress("Full API test, HTTP_HOST = $http_host");
 
 player_crud_test();
 static_queries();
+game_test_exhaustive_3_and_corners();
+
 foreach($GAME_TYPES as $k => $v) {
   game_test($k);
 }

@@ -36,7 +36,8 @@ try {
   $stmt = $db->prepare("DELETE FROM player WHERE player_id=:player_id");
   $stmt->bindParam(':player_id', $player['player_id']);
   checked_execute_query($stmt);
-  $db->commit();
+  $r = $db->commit();
+  assert_or_die($r === TRUE, HttpCode::SERVICE_UNAVAILABLE, "Commit failed.");
   http_response_code(HttpCode::OK);
 } catch(Exception $exc){
   http_response_code(HttpCode::SERVICE_UNAVAILABLE);

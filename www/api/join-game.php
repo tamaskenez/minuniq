@@ -116,12 +116,12 @@ try {
       $stmt = $db->prepare(
         "SELECT MIN(picked_number) FROM" .
         "  (SELECT picked_number" .
-        "   FROM game_numbers" .
+        "   FROM game_picked_numbers" .
         "   WHERE game_type_id=:game_type_id" .
         "   GROUP BY picked_number" .
         "   HAVING COUNT(1) = 1" .
         "   ) AS inner_query");
-        $stmt->bindParam(':email', $email);
+      $stmt->bindParam(':game_type_id', $game_type_id);
 
       checked_execute_query($stmt);
       $row = $stmt->fetch(PDO::FETCH_NUM);
@@ -135,10 +135,6 @@ try {
     } else {
       $new_winner_number = $old_winner_number;
     }
-  }
-
-  if ($new_winner_number !== $old_winner_number) {
-    // TODO: Winner number changed.
   }
 
   // Update current game row.
@@ -158,7 +154,7 @@ try {
 
   checked_execute_query($stmt);
 
-  $total_num_players = $GAME_TYPES[$game_type_id]['num_players'];
+  $total_num_players = $GAME_TYPES[$game_type_id]['num-players'];
 
   if ($new_num_players >= $total_num_players) {
     // This game has ended, update all tables.
@@ -180,7 +176,7 @@ try {
       $stmt->bindParam(':picked_number', $new_winner_number);
       checked_execute_query($stmt);
       $row = $stmt->fetch(PDO::FETCH_NUM);
-      assert_or_die($row === FALSE,
+      assert_or_die($row !== FALSE,
         HttpCode::INTERNAL_SERVER_ERROR, "Winner email not found.");
       $winner_player_email = $row[0];
     }
@@ -195,7 +191,7 @@ try {
     // Update game history.
     $stmt = $db->prepare(
       "UPDATE game_history" .
-      "  SET finished=:1, winner_player_email=:winner_player_email," .
+      "  SET finished=1, winner_player_email=:winner_player_email," .
       "    winner_number=:winner_number" .
       "  WHERE game_id=:game_id");
     $stmt->bindParam(':winner_player_email', $winner_player_email);
@@ -212,19 +208,23 @@ try {
     checked_execute_query($stmt);
 
     // Update player.
-    $winner_balance = $new_balance + $BET_AMOUNT * $total_num_players;
-    $stmt = $db->prepare(
-      "UPDATE player" .
-      "  SET balance=:balance" .
-      "  WHERE player_id=:player_id");
-    $stmt->bindParam(':player_id', $player_id);
-    $stmt->bindParam(':balance', $winner_balance);
-    checked_execute_query($stmt);
+    if (!is_null($winner_player_email)) {
+      $stmt = $db->prepare(
+        "UPDATE player" .
+        "  SET balance=balance + :amount" .
+        "  WHERE email=:email");
+      $stmt->bindParam(':email', $winner_player_email);
+      $amount = $BET_AMOUNT * $total_num_players;
+      $stmt->bindParam(':amount', $amount);
+      checked_execute_query($stmt);
+    }
   } // If game has ended.
 
-  $db->commit();
+  $r = $db->commit();
+  assert_or_die($r === TRUE, HttpCode::SERVICE_UNAVAILABLE, "Commit failed.");
+
   http_response_code(HttpCode::OK);
-  print json_encode(array("game_id" => $game_id));
+  print json_encode(array("game-id" => $game_id));
 } catch(Exception $exc){
   http_response_code(503);
   die(json_encode(
