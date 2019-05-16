@@ -171,7 +171,7 @@ function static_queries() {
   check($jr == $MAX_PICKED_NUMBER, $tn);
 }
 
-function game_test_with_picked_numbers($game_type_id, $players, $tn) {
+function game_test_with_picked_numbers($game_type_id, $players, $tn, $multithreaded) {
   progress("-- $tn");
   global $GAME_TYPES, $BET_AMOUNT;
 
@@ -207,31 +207,45 @@ function game_test_with_picked_numbers($game_type_id, $players, $tn) {
       'email' => $v['email'],
       'game-type-id' => $game_type_id,
       'picked-number' => $picked_number);
-    $r = test_curl_request('POST', 'join-game', $args);
-    check($r['response'] == HttpCode::OK, $tn);
     ++$num_players;
-    $jr = json_decode($r['transfer'], TRUE);
-    check(isset($jr['game-id']), $tn);
-    if (is_null($game_id)) {
-      $game_id = $jr['game-id'];
-    } else {
-      check($jr['game-id'] == $game_id, $tn);
-    }
     if (isset($numbers[$picked_number])) {
       $numbers[$picked_number] = $numbers[$picked_number] + 1;
     } else {
       $numbers[$picked_number] = 1;
     }
+    if ($multithreaded) {
+      // just save the object
+    } else {
+      $r = test_curl_request('POST', 'join-game', $args);
+      check($r['response'] == HttpCode::OK, $tn);
+      $jr = json_decode($r['transfer'], TRUE);
+      check(isset($jr['game-id']), $tn);
+      if (is_null($game_id)) {
+        $game_id = $jr['game-id'];
+      } else {
+        check($jr['game-id'] == $game_id, $tn);
+      }
 
-    $r = test_curl_request('GET', 'query-game', array(
-      "game-id" => $game_id
-    ));
-    check($r['response'] == HttpCode::OK, $tn);
-    $jr = json_decode($r['transfer'], TRUE);
-    check($jr['game-type-id'] == $game_type_id, $tn . '/invalid game-type-id');
-    check($jr['num-players'] == $num_players, $tn . '/invalid num-players');
-
+      $r = test_curl_request('GET', 'query-game', array(
+        "game-id" => $game_id
+      ));
+      check($r['response'] == HttpCode::OK, $tn);
+      $jr = json_decode($r['transfer'], TRUE);
+      check($jr['game-type-id'] == $game_type_id, $tn . '/invalid game-type-id');
+      check($jr['num-players'] == $num_players, $tn . '/invalid num-players');
+    }
     if ($num_players == $NP) {
+      if ($multithreaded) {
+        // Launch and wait for each object to finish.
+        // Check game-id for all of them.
+        $r = test_curl_request('GET', 'query-game', array(
+          "game-id" => $game_id
+        ));
+        check($r['response'] == HttpCode::OK, $tn);
+        $jr = json_decode($r['transfer'], TRUE);
+        check($jr['game-type-id'] == $game_type_id, $tn . '/invalid game-type-id');
+        check($jr['num-players'] == $num_players, $tn . '/invalid num-players');
+      }
       check($jr['finished'] == 1, $tn . '/invalid finished');
       ksort($numbers);
       $winner_number = NULL;
@@ -286,7 +300,8 @@ function game_test_exhaustive_3_and_corners() {
             0 => array('picked-number' => $a),
             1 => array('picked-number' => $b),
             2 => array('picked-number' => $c)),
-          "Exhaustive 3-player game test/$i");
+          "Exhaustive 3-player game test/$i",
+          FALSE);
           ++$i;
       }
     }
@@ -311,7 +326,7 @@ function game_test_exhaustive_3_and_corners() {
   check($r['response'] == HttpCode::NOT_FOUND, "$tn/invalid game-id 3");
 }
 
-function game_test($game_type_id) {
+function game_test($game_type_id, $multithreaded) {
   global $GAME_TYPES, $MAX_PICKED_NUMBER;
   $NUM_GAMES_PER_TYPE = 4;
   $NP = $GAME_TYPES[$game_type_id]['num-players'];
@@ -323,7 +338,7 @@ function game_test($game_type_id) {
       $players[$i] = array('picked-number' => $picked_number);
     }
     game_test_with_picked_numbers($game_type_id, $players,
-      "Random game test $NP players #$j");
+      "Random game test $NP players #$j", $multithreaded);
   }
 }
 
@@ -337,7 +352,11 @@ static_queries();
 game_test_exhaustive_3_and_corners();
 
 foreach($GAME_TYPES as $k => $v) {
-  game_test($k);
+  game_test($k, FALSE);
+}
+
+foreach($GAME_TYPES as $k => $v) {
+  game_test($k, TRUE);
 }
 
 progress("Test done.");
