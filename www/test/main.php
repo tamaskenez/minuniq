@@ -171,6 +171,26 @@ function static_queries() {
   check($jr == $MAX_PICKED_NUMBER, $tn);
 }
 
+class JoinGameThread extends Thread {
+  /*
+  public function __construct($args) {
+    $this->args = $args;
+    $this->response = NULL;
+    $this->game_id = NULL;
+  }
+  public function run() {
+    $r = test_curl_request('POST', 'join-game', $this->args);
+    $this->response = $r['response'];
+    if ($this->response == HttpCode::OK) {
+      $jr = json_decode($r['transfer'], TRUE);
+      if (isset($jr['game-id'])) {
+        this->game_id = $jr['game-id'];
+      }
+    }
+  }
+  */
+}
+
 function game_test_with_picked_numbers($game_type_id, $players, $tn, $multithreaded) {
   progress("-- $tn");
   global $GAME_TYPES, $BET_AMOUNT;
@@ -201,6 +221,7 @@ function game_test_with_picked_numbers($game_type_id, $players, $tn, $multithrea
   $game_id = NULL;
   $num_players = 0;
   $winner_email = NULL;
+  $threads = $multithreaded ? array() : NULL;
   foreach($players as $k => $v) {
     $picked_number = $v['picked-number'];
     $args = array(
@@ -215,6 +236,7 @@ function game_test_with_picked_numbers($game_type_id, $players, $tn, $multithrea
     }
     if ($multithreaded) {
       // just save the object
+      array_push($threads, new JoinGameThread($args));
     } else {
       $r = test_curl_request('POST', 'join-game', $args);
       check($r['response'] == HttpCode::OK, $tn);
@@ -236,8 +258,21 @@ function game_test_with_picked_numbers($game_type_id, $players, $tn, $multithrea
     }
     if ($num_players == $NP) {
       if ($multithreaded) {
-        // Launch and wait for each object to finish.
-        // Check game-id for all of them.
+        // Launch and wait for each thread to finish.
+        foreach($threads as $v) {
+          $v->start();
+        }
+        foreach($threads as $v) {
+          $r = $v->join();
+          check($r === TRUE, $tn . '/thread join error');
+          check($v->response == HttpCode::OK, $tn . '/thread httpcode error');
+          check(!is_null($v->game_id), $tn . '/thread null game id');
+          if (is_null($game_id)) {
+            $game_id = $v->game_id;
+          } else {
+            check($v->game_id == $game_id, $tn . 'game-id mismatch');
+          }
+        }
         $r = test_curl_request('GET', 'query-game', array(
           "game-id" => $game_id
         ));
@@ -347,6 +382,7 @@ header( 'Content-type: text/html; charset=utf-8' );
 $http_host = $_SERVER['HTTP_HOST'];
 progress("Full API test, HTTP_HOST = $http_host");
 
+/*
 player_crud_test();
 static_queries();
 game_test_exhaustive_3_and_corners();
@@ -358,7 +394,7 @@ foreach($GAME_TYPES as $k => $v) {
 foreach($GAME_TYPES as $k => $v) {
   game_test($k, TRUE);
 }
-
+*/
 progress("Test done.");
 
 ?>
