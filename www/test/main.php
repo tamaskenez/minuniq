@@ -72,6 +72,12 @@ function player_crud_test() {
   test_missing_empty_invalid_email('POST', 'top-up-balance', "$email.",
     $top_up_args);
 
+  foreach(array(0, -1, "notanumber", "not a number", "1 notanumber") as $b) {
+    $r = test_curl_request('POST', 'top-up-balance',
+      array('email' => $email, 'amount' => $b));
+    check($r['response'] == HttpCode::BAD_REQUEST, "player/top-up/$b");
+  }
+
   $r = test_curl_request('POST', 'top-up-balance', $top_up_args);
   check($r['response'] == HttpCode::OK, 'player/top-up');
 
@@ -115,11 +121,6 @@ function player_crud_test() {
   check($r['response'] == HttpCode::BAD_REQUEST, 'player/delete');
 }
 
-function player_corner_cases_test() {
-  $tn = 'query-game';
-  $tn = 'join-game';
-}
-
 function static_queries() {
   progress('-- Test list-game-types.');
   $tn = 'list-game-types';
@@ -140,9 +141,16 @@ function static_queries() {
   check($jr == $MAX_PICKED_NUMBER, $tn);
 }
 
+function game_test($game_type_id) {
+  progress("-- Test game type $game_type_id");
+  $db = create_open_empty_test_db();
+}
+
 player_crud_test();
-player_corner_cases_test();
 static_queries();
+foreach($GAME_TYPES as $k => $v) {
+  game_test($k);
+}
 
 progress("Test done.");
 
