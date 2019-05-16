@@ -41,7 +41,7 @@ function test_missing_empty_invalid_email($method, $api, $invalid_email, $args) 
 
 // Full cycle for a player.
 function player_crud_test() {
-  global $MAX_PICKED_NUMBER;
+  global $MAX_PICKED_NUMBER, $BET_AMOUNT;
 
   progress("-- Player CRUD tests.");
   $db = create_open_empty_test_db();
@@ -103,7 +103,8 @@ function player_crud_test() {
 
   $r = test_curl_request('POST', 'register-player', array('email' => $email));
   check($r['response'] == HttpCode::CREATED, 'player');
-  $r = test_curl_request('POST', 'top-up-balance', array('email' => $email, 'amount' => 123.45));
+  $r = test_curl_request('POST', 'top-up-balance', array(
+    'email' => $email, 'amount' => $amount1));
   check($r['response'] == HttpCode::OK, 'player/top-up');
 
   $tn = 'join-game-corner-cases';
@@ -147,6 +148,12 @@ function player_crud_test() {
   $r = test_curl_request('POST', 'join-game', $join_game_args);
   check($r['response'] == HttpCode::OK, $tn);
 
+  // Try joining again the same game type.
+  $r = test_curl_request('POST', 'join-game', $join_game_args);
+  check($r['response'] == HttpCode::BAD_REQUEST, 'player/join again');
+
+  check_player_balance($email, $amount1 - $BET_AMOUNT, 'player/join again balance');
+
   $r = test_curl_request('POST', 'delete-player', array('email' => $email));
   check($r['response'] == HttpCode::BAD_REQUEST, 'player/delete');
 }
@@ -171,7 +178,7 @@ function static_queries() {
   check($jr == $MAX_PICKED_NUMBER, $tn);
 }
 
-function game_test_with_picked_numbers($game_type_id, $players, $tn, $multithreaded) {
+function game_test_with_picked_numbers($game_type_id, $players, $tn) {
   progress("-- $tn");
   global $GAME_TYPES, $BET_AMOUNT;
 
@@ -213,39 +220,25 @@ function game_test_with_picked_numbers($game_type_id, $players, $tn, $multithrea
     } else {
       $numbers[$picked_number] = 1;
     }
-    if ($multithreaded) {
-      // just save the object
+    $r = test_curl_request('POST', 'join-game', $args);
+    check($r['response'] == HttpCode::OK, $tn);
+    $jr = json_decode($r['transfer'], TRUE);
+    check(isset($jr['game-id']), $tn);
+    if (is_null($game_id)) {
+      $game_id = $jr['game-id'];
     } else {
-      $r = test_curl_request('POST', 'join-game', $args);
-      check($r['response'] == HttpCode::OK, $tn);
-      $jr = json_decode($r['transfer'], TRUE);
-      check(isset($jr['game-id']), $tn);
-      if (is_null($game_id)) {
-        $game_id = $jr['game-id'];
-      } else {
-        check($jr['game-id'] == $game_id, $tn);
-      }
-
-      $r = test_curl_request('GET', 'query-game', array(
-        "game-id" => $game_id
-      ));
-      check($r['response'] == HttpCode::OK, $tn);
-      $jr = json_decode($r['transfer'], TRUE);
-      check($jr['game-type-id'] == $game_type_id, $tn . '/invalid game-type-id');
-      check($jr['num-players'] == $num_players, $tn . '/invalid num-players');
+      check($jr['game-id'] == $game_id, $tn);
     }
+
+    $r = test_curl_request('GET', 'query-game', array(
+      "game-id" => $game_id
+    ));
+    check($r['response'] == HttpCode::OK, $tn);
+    $jr = json_decode($r['transfer'], TRUE);
+    check($jr['game-type-id'] == $game_type_id, $tn . '/invalid game-type-id');
+    check($jr['num-players'] == $num_players, $tn . '/invalid num-players');
+    
     if ($num_players == $NP) {
-      if ($multithreaded) {
-        // Launch and wait for each object to finish.
-        // Check game-id for all of them.
-        $r = test_curl_request('GET', 'query-game', array(
-          "game-id" => $game_id
-        ));
-        check($r['response'] == HttpCode::OK, $tn);
-        $jr = json_decode($r['transfer'], TRUE);
-        check($jr['game-type-id'] == $game_type_id, $tn . '/invalid game-type-id');
-        check($jr['num-players'] == $num_players, $tn . '/invalid num-players');
-      }
       check($jr['finished'] == 1, $tn . '/invalid finished');
       ksort($numbers);
       $winner_number = NULL;
@@ -300,8 +293,7 @@ function game_test_exhaustive_3_and_corners() {
             0 => array('picked-number' => $a),
             1 => array('picked-number' => $b),
             2 => array('picked-number' => $c)),
-          "Exhaustive 3-player game test/$i",
-          FALSE);
+          "Exhaustive 3-player game test/$i");
           ++$i;
       }
     }
@@ -326,7 +318,7 @@ function game_test_exhaustive_3_and_corners() {
   check($r['response'] == HttpCode::NOT_FOUND, "$tn/invalid game-id 3");
 }
 
-function game_test($game_type_id, $multithreaded) {
+function game_test($game_type_id) {
   global $GAME_TYPES, $MAX_PICKED_NUMBER;
   $NUM_GAMES_PER_TYPE = 4;
   $NP = $GAME_TYPES[$game_type_id]['num-players'];
@@ -338,7 +330,7 @@ function game_test($game_type_id, $multithreaded) {
       $players[$i] = array('picked-number' => $picked_number);
     }
     game_test_with_picked_numbers($game_type_id, $players,
-      "Random game test $NP players #$j", $multithreaded);
+      "Random game test $NP players #$j");
   }
 }
 
@@ -352,11 +344,7 @@ static_queries();
 game_test_exhaustive_3_and_corners();
 
 foreach($GAME_TYPES as $k => $v) {
-  game_test($k, FALSE);
-}
-
-foreach($GAME_TYPES as $k => $v) {
-  game_test($k, TRUE);
+  game_test($k);
 }
 
 progress("Test done.");
