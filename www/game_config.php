@@ -2,7 +2,7 @@
 
 $GAME_TYPES = array(
   array(
-    "name" => "threesome",
+    "name" => "triad",
     "num-players" => 3,
     "description" => "Quick game against 2 opponents."
   ),

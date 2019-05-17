@@ -16,6 +16,24 @@ TODO:
 - deployment
 - clean-up (docs, comments, read challenge)
 - polling, long-polling, websockets
-- multiplyable game servers
+- multipliable game servers
+
+
+
 
 - multithreaded game test CANCEL
+
+
+
+game_type 0: [my-number] [BET] game-id winner_number
+...
+
+game-type:
+  not-joined | {game-id my-num num-players}
+  no-last-game | {last-game-winner, last-game-number
+<tr>
+  <td>gametitle</td>
+  <td>3 players</td>
+  <td>Your number: XXX JOIN</td> <td>Joined with XXX, waiting for %d players</td>
+  <td>Last game won by % with number: </td>  <td>You won the last game with number: ##</td> <td>Last game had no winner</td>
+</tr>

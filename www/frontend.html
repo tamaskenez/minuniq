@@ -3,6 +3,11 @@
   <head>
     <meta charset="UTF-8">
     <title>Min-uniq front-end</title>
+    <style>
+      td {
+        text-align: center;
+      }
+    </style>
   </head>
   <body>
     <label for="email" id="lbl_email"></label>
@@ -10,15 +15,21 @@
     <button type="button" id="btn_login">qwe</button>
     <br>
     <label for="balance" id="lbl_balance">Balance: </label>
-    <input type="text" disable="true" id="balance">
+    <input type="text" disabled="true" id="balance">
+    <br><br>
+    <table id="games-table">
+    </table>
     <script>
       const BTN_TEXT_LOGIN_SIGNUP = "Login/Sign-up";
       const BTN_TEXT_LOGOUT = "Logout";
       const BTN_TEXT_REFRESH = "Refresh";
 
-      var logged_in_email;
+      var g_logged_in_email;
+      var g_game_types;
+      var g_player_join_states;
+      var g_last_game_states;
 
-      function onlick_btn_logout() {
+      function onclick_btn_logout() {
         set_logged_out();
       }
 
@@ -28,7 +39,7 @@
           result = ((result === null) ? '' : result + '&')
             + encodeURIComponent(key) + '=' + encodeURIComponent(value);
         }
-        return result;
+        return result === null ? '' : result;
       }
 
 /*      async function get_balance_or_null_by_login_or_signup(email) {
@@ -47,53 +58,77 @@
       }
   */
 
+      class HttpError extends Error {
+        constructor(status, ...params) {
+          super(...params);
+          if (Error.captureStackTrace) {
+            Error.captureStackTrace(this, HttpError);
+          }
+          this.name = 'HttpError';
+          this.status = status;
+        }
+      }
+
       async function fetch_get(url, args) {
-        var r = await fetch(url + '?' + http_build_request(args), {
+        let request_url = url + '?' + http_build_request(args);
+        let response = await fetch(request_url, {
             method: 'get'
           });
-        return r;
+        if (response.ok) {
+          return await response.json();
+        } else {
+          throw await httpErrorFromResponse(response);
+        }
       }
 
       async function fetch_post(url, args) {
-        var r = await fetch(url, {
+        let response = await fetch(url, {
             method: 'post',
             headers: {
               "Content-type": "application/x-www-form-urlencoded; charset=UTF-8"
             },
             body: http_build_request(args)
           });
-        return r;
+        if (response.ok) {
+          return await response.json();
+        } else {
+          throw await httpErrorFromResponse(response);
+        }
+      }
+
+      async function httpErrorFromResponse(response) {
+        var json;
+        try {
+          json = await response.json();
+        } catch(e) {
+          return new HttpError(response.status);
+        }
+        var text;
+        if ('error' in json) {
+          text = json.error;
+          if ('message' in json) {
+            text = text + ` (${json.message})`;
+          }
+        } else {
+          text = JSON.stringify(error);
+        }
+        return new HttpError(response.status, text);
       }
 
       async function get_player(email) {
-        var response = await fetch_get(
+        return await fetch_get(
           'http://localhost:8888/api/get-player.php', {
             email: email
           }
         );
-        if (response.ok) {
-          var json = await response.json();
-          return json;
-        } else {
-          var json = await response.json();
-          json.status = response.status;
-          throw json;
-        }
       }
 
       async function register_player(email) {
-        var response = await fetch_post(
+        return await fetch_post(
           'http://localhost:8888/api/register-player.php', {
             email: email
           }
         );
-        if (response.ok) {
-          return;
-        } else {
-          var json = await response.json();
-          json.status = response.status;
-          throw json;
-        }
       }
 
       async function login_signup() {
@@ -102,7 +137,7 @@
         try {
           player = await get_player(email);
         } catch(error) {
-          if (error.status != 404) {
+          if (!('status' in error) || error.status != 404) {
             throw error;
           }
           await register_player(email);
@@ -112,72 +147,131 @@
         set_balance(player.balance);
       }
 
-      function onlick_btn_login_signup() {
+      function onclick_btn_login_signup() {
         login_signup()
         .catch(function(error){
-          alert('Can\'t login/sign-up ('
-            + error.status
-            + '): '
-            + error.error
-          );
+          display_error('Can\'t login/sign-up (', error);
+        });
+      }
+
+      async function async_join_game(game_type_id) {
+        email = document.getElementById('email').value;
+        picked_number = document.getElementById('join-number-' + game_type_id).value;
+        let response = await fetch_post('http://localhost:8888/api/join-game.php', {
+          'email': email,
+          'game-type-id': game_type_id,
+          'picked-number': picked_number
+        });
+        console.log('joined: ' + JSON.stringify(await response.json()));
+      }
+
+      function onclick_join_game(game_type_id) {
+        async_join_game(game_type_id)
+        .then(function() {
+          console.log('onlick join ok');
+        })
+        .catch(function(error) {
+          display_error('Can\'t join game: ', error);
         });
       }
 
       function set_logged_in_as(email) {
-        logged_in_email = email;
+        g_logged_in_email = email;
         document.getElementById('lbl_email').innerHTML = 'Logged in as:';
         document.getElementById('btn_login').innerHTML = 'Logout';
-        document.getElementById('btn_login').onclick = onlick_btn_logout;
+        document.getElementById('btn_login').onclick = onclick_btn_logout;
         document.getElementById('email').value = email;
         document.getElementById('email').disabled = true;
+        update_game_table(g_game_types, g_player_join_states, g_last_game_states);
       }
 
       function set_logged_out() {
-        logged_in_email = null;
+        g_logged_in_email = null;
         document.getElementById('lbl_email').innerHTML = 'Email:';
         document.getElementById('btn_login').innerHTML = 'Login/Sign-up';
-        document.getElementById('btn_login').onclick = onlick_btn_login_signup;
+        document.getElementById('btn_login').onclick = onclick_btn_login_signup;
         document.getElementById('email').disabled = false;
         document.getElementById('balance').value = '-';
+        update_game_table(g_game_types, g_player_join_states, g_last_game_states);
       }
 
       function set_balance(balance) {
         document.getElementById('balance').value = balance;
       }
 
-      window.onload = function() {
-        set_logged_out();
+      function init_game_table(game_types) {
+        g_game_types = game_types;
+        g_player_join_states = [];
+        g_last_game_states = [];
+        var table = document.getElementById('games-table');
+        for(i = 0; ; ++i) {
+          if (!(i in game_types)) {
+            break;
+          }
+          let value = game_types[i];
+          var tr = table.insertRow();
+          var td = tr.insertCell();
+          td.appendChild(document.createTextNode(value.name));
+          var td = tr.insertCell();
+          td.appendChild(document.createTextNode(value['num-players'] + ' players'));
+          var td = tr.insertCell();
+          td.id = 'game-row-join-' + i;
+          var td = tr.insertCell();
+          td.id = 'game-row-last-' + i;
+          g_player_join_states[i] = {};
+          g_last_game_states[i] = {};
+        }
       }
 
-/*      async function display_error(response) {
-        var json = await response.json();
-        var text = 'Error (' + response.status + ')';
-        if (json.error) {
-          text = text + ': ' + json.error;
-          if (json.message) {
-            text = text + ', ' + json.message;
+      function update_game_table(game_types, player_join_states, last_game_states) {
+        for(i = 0; ; ++i) {
+          if (!(i in game_types)) {
+            break;
           }
+          var tdj = document.getElementById('game-row-join-' + i);
+          var tdl = document.getElementById('game-row-last-' + i);
+          var pjs = player_join_states[i];
+          var lgs = last_game_states[i];
+          var new_node;
+          if (g_logged_in_email === null) {
+            inner_html = '';
+          } else if ('joined' in pjs) {
+            let np = pjs.joined.num_players;
+            inner_html = 'Joined with number ' + pjs.joined.my_num
+              + ', waiting for ' + np + ((np == 1) ? 'player' : 'players');
+          } else {
+            inner_html =
+              `Your number: <input type="text" size="4" id="join-number-${i}">`
+              + `<button id="btn-join-${i}" onclick="onclick_join_game(${i})">`
+              + 'JOIN</button>';
+          }
+          tdj.innerHTML = inner_html;
         }
-        alert(error);
       }
-      async function signup(email) {
-        if (response.ok) {
-          return true;
-        } else {
-          display_error(reponse);
-          return false;
-        }
-      }
-      async function login_clicked() {
-        var email = document.getElementById('email').value;
-        var ok = await login_or_signup(email);
-        if (!ok) return false;
-        .then(function(result) {
+
+      window.onload = function() {
+        fetch_get('http://localhost:8888/api/list-game-types.php', {})
+        .then(function(game_types) {
+          init_game_table(game_types);
+          update_game_table(g_game_types, g_player_join_states, g_last_game_states);
+          set_logged_out();
         })
-        .catch(function(error){
-          alert(error);
+        .catch(function(error) {
+          display_error(error);
         });
-      }*/
+      }
+
+      function display_error(prefix, error) {
+        var text;
+        if (error instanceof HttpError) {
+          text = `${prefix}: (HttpError/${error.status}) ${error.message}`;
+        } else if (error instanceof Error) {
+          text = `${prefix}: (${error.name}) ${error.message}`;
+        } else {
+          text = `${prefix}: ${JSON.stringify(error)}`;
+        }
+        alert(text);
+      }
     </script>
   </body>
 </html>
