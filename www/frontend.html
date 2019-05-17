@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Min-uniq front-end</title>
+  </head>
+  <body>
+    <label for="email" id="lbl_email"></label>
+    <input type="text" id="email">
+    <button type="button" id="btn_login">qwe</button>
+    <br>
+    <label for="balance" id="lbl_balance">Balance: </label>
+    <input type="text" disable="true" id="balance">
+    <script>
+      const BTN_TEXT_LOGIN_SIGNUP = "Login/Sign-up";
+      const BTN_TEXT_LOGOUT = "Logout";
+      const BTN_TEXT_REFRESH = "Refresh";
+
+      var logged_in_email;
+
+      function onlick_btn_logout() {
+        set_logged_out();
+      }
+
+      function http_build_request(args) {
+        var result = null;
+        for (let [key, value] of Object.entries(args)) {
+          result = ((result === null) ? '' : result + '&')
+            + encodeURIComponent(key) + '=' + encodeURIComponent(value);
+        }
+        return result;
+      }
+
+/*      async function get_balance_or_null_by_login_or_signup(email) {
+
+        get player -> balance
+        if (ok) {
+          this is balance
+          return ok
+        }
+        try register
+        if (ok) {
+          balance = 0
+          return ok
+        }
+        return not ok
+      }
+  */
+
+      async function fetch_get(url, args) {
+        var r = await fetch(url + '?' + http_build_request(args), {
+            method: 'get'
+          });
+        return r;
+      }
+
+      async function fetch_post(url, args) {
+        var r = await fetch(url, {
+            method: 'post',
+            headers: {
+              "Content-type": "application/x-www-form-urlencoded; charset=UTF-8"
+            },
+            body: http_build_request(args)
+          });
+        return r;
+      }
+
+      async function get_player(email) {
+        var response = await fetch_get(
+          'http://localhost:8888/api/get-player.php', {
+            email: email
+          }
+        );
+        if (response.ok) {
+          var json = await response.json();
+          return json;
+        } else {
+          var json = await response.json();
+          json.status = response.status;
+          throw json;
+        }
+      }
+
+      async function register_player(email) {
+        var response = await fetch_post(
+          'http://localhost:8888/api/register-player.php', {
+            email: email
+          }
+        );
+        if (response.ok) {
+          return;
+        } else {
+          var json = await response.json();
+          json.status = response.status;
+          throw json;
+        }
+      }
+
+      async function login_signup() {
+        email = document.getElementById('email').value;
+        var player;
+        try {
+          player = await get_player(email);
+        } catch(error) {
+          if (error.status != 404) {
+            throw error;
+          }
+          await register_player(email);
+          player = await get_player(email);
+        }
+        set_logged_in_as(email);
+        set_balance(player.balance);
+      }
+
+      function onlick_btn_login_signup() {
+        login_signup()
+        .catch(function(error){
+          alert('Can\'t login/sign-up ('
+            + error.status
+            + '): '
+            + error.error
+          );
+        });
+      }
+
+      function set_logged_in_as(email) {
+        logged_in_email = email;
+        document.getElementById('lbl_email').innerHTML = 'Logged in as:';
+        document.getElementById('btn_login').innerHTML = 'Logout';
+        document.getElementById('btn_login').onclick = onlick_btn_logout;
+        document.getElementById('email').value = email;
+        document.getElementById('email').disabled = true;
+      }
+
+      function set_logged_out() {
+        logged_in_email = null;
+        document.getElementById('lbl_email').innerHTML = 'Email:';
+        document.getElementById('btn_login').innerHTML = 'Login/Sign-up';
+        document.getElementById('btn_login').onclick = onlick_btn_login_signup;
+        document.getElementById('email').disabled = false;
+        document.getElementById('balance').value = '-';
+      }
+
+      function set_balance(balance) {
+        document.getElementById('balance').value = balance;
+      }
+
+      window.onload = function() {
+        set_logged_out();
+      }
+
+/*      async function display_error(response) {
+        var json = await response.json();
+        var text = 'Error (' + response.status + ')';
+        if (json.error) {
+          text = text + ': ' + json.error;
+          if (json.message) {
+            text = text + ', ' + json.message;
+          }
+        }
+        alert(error);
+      }
+      async function signup(email) {
+        if (response.ok) {
+          return true;
+        } else {
+          display_error(reponse);
+          return false;
+        }
+      }
+      async function login_clicked() {
+        var email = document.getElementById('email').value;
+        var ok = await login_or_signup(email);
+        if (!ok) return false;
+        .then(function(result) {
+        })
+        .catch(function(error){
+          alert(error);
+        });
+      }*/
+    </script>
+  </body>
+</html>
