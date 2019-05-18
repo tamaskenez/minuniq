@@ -60,11 +60,12 @@ function check_balance($expected, $actual, $msg) {
   }
 }
 
-function check_player_balance($email, $expected, $test_name) {
+function check_player_balance($email, $expected, $test_name, $games) {
   $r = test_curl_request('GET', 'get-player', array('email' => $email));
   check($r['response'] == HttpCode::OK, $test_name);
   $jr = json_decode($r['transfer'], TRUE);
   check_balance($expected, $jr['balance'], $test_name);
+  check($games == $jr['games'], $test_name . '/get-player games mismatch');
 }
 
 ?>

@@ -55,7 +55,7 @@ function player_crud_test() {
   check($r['response'] == HttpCode::CREATED, 'player');
 
   // .. and check balance.
-  check_player_balance($email, 0, 'player/balance');
+  check_player_balance($email, 0, 'player/balance', array());
 
   $tn = 'register-player/already registered';
   $r = test_curl_request('POST', 'register-player', array('email' => $email));
@@ -80,7 +80,7 @@ function player_crud_test() {
   check($r['response'] == HttpCode::OK, 'player/top-up');
 
   // .. and check data.
-  check_player_balance($email, $amount1, 'player/topped-up balance');
+  check_player_balance($email, $amount1, 'player/topped-up balance', array());
 
   // Top-up again.
   $amount2 = 212.12;
@@ -89,7 +89,8 @@ function player_crud_test() {
   check($r['response'] == HttpCode::OK, 'player/top-up');
 
   // .. and check data.
-  check_player_balance($email, $amount1 + $amount2, 'player/topped-up balance 2');
+  check_player_balance($email, $amount1 + $amount2,
+    'player/topped-up balance 2', array());
 
   // Delete player.
   test_missing_empty_invalid_email('POST', 'delete-player', "$email.", array());
@@ -147,27 +148,31 @@ function player_crud_test() {
 
   $r = test_curl_request('POST', 'join-game', $join_game_args);
   check($r['response'] == HttpCode::OK, $tn);
+  $jr = json_decode($r['transfer'], TRUE);
+  $game_id = $jr['game-id'];
 
   // Try joining again the same game type.
   $r = test_curl_request('POST', 'join-game', $join_game_args);
   check($r['response'] == HttpCode::BAD_REQUEST, 'player/join again');
 
-  check_player_balance($email, $amount1 - $BET_AMOUNT, 'player/join again balance');
+  check_player_balance($email, $amount1 - $BET_AMOUNT,
+    'player/join again balance',
+    array($join_game_args['game-type-id'] => $game_id));
 
+  // Delete player with ongoing game.
   $r = test_curl_request('POST', 'delete-player', array('email' => $email));
   check($r['response'] == HttpCode::BAD_REQUEST, 'player/delete');
 }
 
 function static_queries() {
+  global $GAME_TYPES;
+  global $MAX_PICKED_NUMBER;
+
   progress('-- Test list-game-types.');
   $tn = 'list-game-types';
   $r = test_curl_request('GET', 'list-game-types', array());
   check($r['response'] == HttpCode::OK, $tn);
   $jr = json_decode($r['transfer'], TRUE);
-
-  global $GAME_TYPES;
-  global $MAX_PICKED_NUMBER;
-
   check($jr == $GAME_TYPES, $tn);
 
   progress('-- Test max-picked-number.');
@@ -201,7 +206,7 @@ function game_test_with_picked_numbers($game_type_id, $players, $tn) {
     $r = test_curl_request('POST', 'top-up-balance', array(
       'email' => $email, 'amount' => $amount));
     check($r['response'] == HttpCode::OK, 'player/top-up');
-    check_player_balance($email, $amount, $tn);
+    check_player_balance($email, $amount, $tn, array());
   }
 
   $numbers = array();
@@ -275,7 +280,7 @@ function game_test_with_picked_numbers($game_type_id, $players, $tn) {
     } else {
       $expected_balance = $v['balance'] + $BET_AMOUNT * ($NP - 1);
     }
-    check_player_balance($v['email'], $expected_balance, $tn);
+    check_player_balance($v['email'], $expected_balance, $tn, array());
   }
 }
 
