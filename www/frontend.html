@@ -49,7 +49,7 @@
 
       function http_build_request(args) {
         let result = null;
-        for (let [key, value] of Object.entries(args)) {
+        for(let [key, value] of Object.entries(args)) {
           result = ((result === null) ? '' : result + '&')
             + encodeURIComponent(key) + '=' + encodeURIComponent(value);
         }
@@ -115,7 +115,7 @@
 
       async function get_player(email) {
         return await fetch_get(
-          'http://localhost:8888/api/get-player.php', {
+          'api/get-player.php', {
             email: email
           }
         );
@@ -123,7 +123,7 @@
 
       async function register_player(email) {
         return await fetch_post(
-          'http://localhost:8888/api/register-player.php', {
+          'api/register-player.php', {
             email: email
           }, false
         );
@@ -143,6 +143,22 @@
         }
         set_logged_in_as(email);
         set_balance(player.balance);
+        let promises = [];
+        for(let i = 0; ; ++i) {
+          if (!(i in g_game_types)) {
+            break;
+          }
+          if(i in player.games) {
+            promises.push(update_game(player.games[i], null));
+          }
+        }
+        Promise.all(promises)
+        .then(function() {
+          update_game_table(email, g_game_types, g_game_states);
+        })
+        .catch(function(error) {
+          display_error('Can\'t retrieve game state: ', error);
+        })
       }
 
       function onclick_btn_login_signup() {
@@ -153,7 +169,7 @@
       }
 
       async function update_game(game_id, picked_number) {
-        let game = await fetch_get('http://localhost:8888/api/query-game.php', {
+        let game = await fetch_get('api/query-game.php', {
           'game-id': game_id
         });
         const game_type_id = game['game-type-id'];
@@ -168,9 +184,7 @@
           }
         } else {
           const num_players = game['num-players'];
-          console.log("game_id1: %o", game_id);
           game_state = new OngoingGame(game_id, picked_number, num_players);
-          console.log("game_id2: %o", game_id);
         }
         g_game_states[game_type_id] = game_state;
       }
@@ -178,7 +192,7 @@
       async function async_join_game(game_type_id) {
         const email = g_logged_in_email;
         const picked_number = document.getElementById('join-number-' + game_type_id).value;
-        let result = await fetch_post('http://localhost:8888/api/join-game.php', {
+        let result = await fetch_post('api/join-game.php', {
           'email': email,
           'game-type-id': game_type_id,
           'picked-number': picked_number
@@ -188,7 +202,7 @@
       }
 
       async function async_top_up(email) {
-        await fetch_post('http://localhost:8888/api/top-up-balance.php', {
+        await fetch_post('api/top-up-balance.php', {
           'email': email,
           'amount': 10
         }, false);
@@ -219,10 +233,6 @@
         document.getElementById('email').disabled = true;
         document.getElementById('btn-top-up').hidden = false;
         update_game_table(email, g_game_types, g_game_states);
-      }
-
-      function f(m) {
-        console.log(m);
       }
 
       function set_logged_out() {
@@ -281,9 +291,15 @@
               + `<button id="btn-join-${i}" onclick="onclick_join_game(${i})">`
               + 'JOIN</button>';
           } else if (gs instanceof OngoingGame) {
-            let np = gs.num_players;
-            inner_html = 'Joined with number ' + gs.picked_number
-              + ', waiting for ' + np + ((np == 1) ? ' player' : ' players');
+            const players_left =
+              game_types[i]['num-players'] - gs.num_players
+            if (gs.picked_number === null) {
+              inner_html = 'Joined';
+            } else {
+              inner_html = 'Joined with number ' + gs.picked_number;
+            }
+            inner_html = inner_html + ', waiting for ' + players_left
+              + ((players_left == 1) ? ' player' : ' players');
           } else if (gs instanceof FinishedGame) {
             if (gs.winner_email === email) {
               inner_html = `You won the last game with number: ${gs.winning_number}`;
@@ -300,7 +316,7 @@
       }
 
       window.onload = function() {
-        fetch_get('http://localhost:8888/api/list-game-types.php', {})
+        fetch_get('api/list-game-types.php', {})
         .then(function(game_types) {
           init_game_table(game_types);
           set_logged_out();
