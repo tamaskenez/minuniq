@@ -12,51 +12,49 @@
   <body>
     <label for="email" id="lbl_email"></label>
     <input type="text" id="email">
-    <button type="button" id="btn_login">qwe</button>
+    <button type="button" id="btn_login"></button>
     <br>
     <label for="balance" id="lbl_balance">Balance: </label>
     <input type="text" disabled="true" id="balance">
+    <button id="btn-top-up" onclick="onclick_top_up()">Top-up $10</button>
     <br><br>
     <table id="games-table">
     </table>
     <script>
+      "use strict";
+
       const BTN_TEXT_LOGIN_SIGNUP = "Login/Sign-up";
       const BTN_TEXT_LOGOUT = "Logout";
       const BTN_TEXT_REFRESH = "Refresh";
 
-      var g_logged_in_email;
-      var g_game_types;
-      var g_player_join_states;
-      var g_last_game_states;
+      let g_logged_in_email = null;
+      let g_game_types = null;
+      let g_game_states = null;
+
+      function OngoingGame(game_id, picked_number, num_players) {
+        this.game_id = game_id;
+        this.picked_number = picked_number;
+        this.num_players = num_players;
+      }
+
+      function FinishedGame(game_id, winning_number, winner_email) {
+        this.game_id = game_id;
+        this.winning_number = winning_number;
+        this.winner_email = winner_email;
+      }
 
       function onclick_btn_logout() {
         set_logged_out();
       }
 
       function http_build_request(args) {
-        var result = null;
+        let result = null;
         for (let [key, value] of Object.entries(args)) {
           result = ((result === null) ? '' : result + '&')
             + encodeURIComponent(key) + '=' + encodeURIComponent(value);
         }
         return result === null ? '' : result;
       }
-
-/*      async function get_balance_or_null_by_login_or_signup(email) {
-
-        get player -> balance
-        if (ok) {
-          this is balance
-          return ok
-        }
-        try register
-        if (ok) {
-          balance = 0
-          return ok
-        }
-        return not ok
-      }
-  */
 
       class HttpError extends Error {
         constructor(status, ...params) {
@@ -70,8 +68,8 @@
       }
 
       async function fetch_get(url, args) {
-        let request_url = url + '?' + http_build_request(args);
-        let response = await fetch(request_url, {
+        const request_url = url + '?' + http_build_request(args);
+        const response = await fetch(request_url, {
             method: 'get'
           });
         if (response.ok) {
@@ -81,8 +79,8 @@
         }
       }
 
-      async function fetch_post(url, args) {
-        let response = await fetch(url, {
+      async function fetch_post(url, args, expect_result) {
+        const response = await fetch(url, {
             method: 'post',
             headers: {
               "Content-type": "application/x-www-form-urlencoded; charset=UTF-8"
@@ -90,20 +88,20 @@
             body: http_build_request(args)
           });
         if (response.ok) {
-          return await response.json();
+          return expect_result ? await response.json() : null;
         } else {
           throw await httpErrorFromResponse(response);
         }
       }
 
       async function httpErrorFromResponse(response) {
-        var json;
+        let json;
         try {
           json = await response.json();
         } catch(e) {
           return new HttpError(response.status);
         }
-        var text;
+        let text;
         if ('error' in json) {
           text = json.error;
           if ('message' in json) {
@@ -127,13 +125,13 @@
         return await fetch_post(
           'http://localhost:8888/api/register-player.php', {
             email: email
-          }
+          }, false
         );
       }
 
       async function login_signup() {
-        email = document.getElementById('email').value;
-        var player;
+        const email = document.getElementById('email').value;
+        let player;
         try {
           player = await get_player(email);
         } catch(error) {
@@ -154,22 +152,59 @@
         });
       }
 
+      async function update_game(game_id, picked_number) {
+        let game = await fetch_get('http://localhost:8888/api/query-game.php', {
+          'game-id': game_id
+        });
+        const game_type_id = game['game-type-id'];
+        let game_state = null;
+        if (game.finished) {
+          if ('winner-number' in game) {
+            const winning_number = game['winner-number'];
+            const winner_email = game['winner-email'];
+            game_state = new FinishedGame(game_id, winning_number, winner_email);
+          } else {
+            game_state = new FinishedGame(game_id, null, null);
+          }
+        } else {
+          const num_players = game['num-players'];
+          console.log("game_id1: %o", game_id);
+          game_state = new OngoingGame(game_id, picked_number, num_players);
+          console.log("game_id2: %o", game_id);
+        }
+        g_game_states[game_type_id] = game_state;
+      }
+
       async function async_join_game(game_type_id) {
-        email = document.getElementById('email').value;
-        picked_number = document.getElementById('join-number-' + game_type_id).value;
-        let response = await fetch_post('http://localhost:8888/api/join-game.php', {
+        const email = g_logged_in_email;
+        const picked_number = document.getElementById('join-number-' + game_type_id).value;
+        let result = await fetch_post('http://localhost:8888/api/join-game.php', {
           'email': email,
           'game-type-id': game_type_id,
           'picked-number': picked_number
+        }, true);
+        await update_game(result['game-id'], picked_number);
+        update_game_table(email, g_game_types, g_game_states);
+      }
+
+      async function async_top_up(email) {
+        await fetch_post('http://localhost:8888/api/top-up-balance.php', {
+          'email': email,
+          'amount': 10
+        }, false);
+        const player = await get_player(email);
+        set_balance(player.balance);
+      }
+
+      function onclick_top_up() {
+        async_top_up(g_logged_in_email)
+        .catch(function(error) {
+          display_error('Can\'t top-up: ', error);
         });
-        console.log('joined: ' + JSON.stringify(await response.json()));
       }
 
       function onclick_join_game(game_type_id) {
         async_join_game(game_type_id)
-        .then(function() {
-          console.log('onlick join ok');
-        })
         .catch(function(error) {
           display_error('Can\'t join game: ', error);
         });
@@ -182,7 +217,12 @@
         document.getElementById('btn_login').onclick = onclick_btn_logout;
         document.getElementById('email').value = email;
         document.getElementById('email').disabled = true;
-        update_game_table(g_game_types, g_player_join_states, g_last_game_states);
+        document.getElementById('btn-top-up').hidden = false;
+        update_game_table(email, g_game_types, g_game_states);
+      }
+
+      function f(m) {
+        console.log(m);
       }
 
       function set_logged_out() {
@@ -192,58 +232,68 @@
         document.getElementById('btn_login').onclick = onclick_btn_login_signup;
         document.getElementById('email').disabled = false;
         document.getElementById('balance').value = '-';
-        update_game_table(g_game_types, g_player_join_states, g_last_game_states);
+        document.getElementById('btn-top-up').hidden = true;
+        update_game_table(null, g_game_types, g_game_states);
       }
 
       function set_balance(balance) {
-        document.getElementById('balance').value = balance;
+        document.getElementById('balance').value = `$${balance}`;
       }
 
       function init_game_table(game_types) {
-        g_game_types = game_types;
-        g_player_join_states = [];
-        g_last_game_states = [];
-        var table = document.getElementById('games-table');
-        for(i = 0; ; ++i) {
-          if (!(i in game_types)) {
+        if (game_types !== null) {
+          g_game_types = game_types;
+        }
+        g_game_states = [];
+        const table = document.getElementById('games-table');
+        for(let i = 0; ; ++i) {
+          if (!(i in g_game_types)) {
             break;
           }
-          let value = game_types[i];
-          var tr = table.insertRow();
-          var td = tr.insertCell();
+          const value = g_game_types[i];
+          const tr = table.insertRow();
+          let td = tr.insertCell();
           td.appendChild(document.createTextNode(value.name));
-          var td = tr.insertCell();
+          td = tr.insertCell();
           td.appendChild(document.createTextNode(value['num-players'] + ' players'));
-          var td = tr.insertCell();
+          td = tr.insertCell();
           td.id = 'game-row-join-' + i;
-          var td = tr.insertCell();
+          td = tr.insertCell();
           td.id = 'game-row-last-' + i;
-          g_player_join_states[i] = {};
-          g_last_game_states[i] = {};
+          g_game_states[i] = null;
         }
       }
 
-      function update_game_table(game_types, player_join_states, last_game_states) {
-        for(i = 0; ; ++i) {
+      function update_game_table(email, game_types, game_states) {
+        for(let i = 0; ; ++i) {
           if (!(i in game_types)) {
             break;
           }
-          var tdj = document.getElementById('game-row-join-' + i);
-          var tdl = document.getElementById('game-row-last-' + i);
-          var pjs = player_join_states[i];
-          var lgs = last_game_states[i];
-          var new_node;
-          if (g_logged_in_email === null) {
+          const tdj = document.getElementById('game-row-join-' + i);
+          const tdl = document.getElementById('game-row-last-' + i);
+          const gs = game_states[i];
+          let inner_html;
+          if (email === null) {
             inner_html = '';
-          } else if ('joined' in pjs) {
-            let np = pjs.joined.num_players;
-            inner_html = 'Joined with number ' + pjs.joined.my_num
-              + ', waiting for ' + np + ((np == 1) ? 'player' : 'players');
-          } else {
+          } else if (gs === null) {
             inner_html =
               `Your number: <input type="text" size="4" id="join-number-${i}">`
               + `<button id="btn-join-${i}" onclick="onclick_join_game(${i})">`
               + 'JOIN</button>';
+          } else if (gs instanceof OngoingGame) {
+            let np = gs.num_players;
+            inner_html = 'Joined with number ' + gs.picked_number
+              + ', waiting for ' + np + ((np == 1) ? ' player' : ' players');
+          } else if (gs instanceof FinishedGame) {
+            if (gs.winner_email === email) {
+              inner_html = `You won the last game with number: ${gs.winning_number}`;
+            } else if (gs.winner_email !== null) {
+              inner_html = `Last game won by ${gs.winner_email} with number: ${gs.winning_number}`;
+            } else {
+              innert_html = 'Last game had no winner';
+            }
+          } else {
+            throw "Invalid game state object";
           }
           tdj.innerHTML = inner_html;
         }
@@ -253,7 +303,6 @@
         fetch_get('http://localhost:8888/api/list-game-types.php', {})
         .then(function(game_types) {
           init_game_table(game_types);
-          update_game_table(g_game_types, g_player_join_states, g_last_game_states);
           set_logged_out();
         })
         .catch(function(error) {
@@ -262,7 +311,7 @@
       }
 
       function display_error(prefix, error) {
-        var text;
+        let text;
         if (error instanceof HttpError) {
           text = `${prefix}: (HttpError/${error.status}) ${error.message}`;
         } else if (error instanceof Error) {
