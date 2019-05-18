@@ -26,8 +26,7 @@ progress("API smoke test, http_host = $http_host");
 progress("-- Test register-player.");
 
 $email = 'example@email.com';
-$r = curl_request("$http_host/api/register-player.php", 'POST',
-  array('email' => $email, 'testing' => 1));
+$r = test_curl_request('POST', 'register-player', array('email' => $email));
 check($r['response'] == HttpCode::CREATED,
   "Response should have been CREATED");
 
@@ -45,8 +44,8 @@ if ($player_id != 1 || $row[1] != $email || $row[2] != 0.0) {
 progress("-- Test top-up-balance.");
 
 $amount = 123.45;
-$r = curl_request("$http_host/api/top-up-balance.php", 'POST',
-  array('email' => $email, 'amount' => $amount, 'testing' => 1));
+$r = test_curl_request('POST', 'top-up-balance',
+  array('email' => $email, 'amount' => $amount));
 check($r['response'] == HttpCode::OK,
   "Response should have been OK");
 $stmt = $db->query("SELECT balance FROM player WHERE player_id=$player_id");
@@ -59,8 +58,7 @@ if ($row[0] != $amount) {
 }
 
 progress("-- Test delete-player.");
-$r = curl_request("$http_host/api/delete-player.php", 'POST',
-  array('email' => $email, 'testing' => 1));
+$r = test_curl_request('POST', 'delete-player', array('email' => $email));
 check($r['response'] == HttpCode::OK,
   "Response should have been OK");
 check_table_size($db, "player", 0);

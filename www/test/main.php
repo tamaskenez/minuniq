@@ -237,7 +237,7 @@ function game_test_with_picked_numbers($game_type_id, $players, $tn) {
     $jr = json_decode($r['transfer'], TRUE);
     check($jr['game-type-id'] == $game_type_id, $tn . '/invalid game-type-id');
     check($jr['num-players'] == $num_players, $tn . '/invalid num-players');
-    
+
     if ($num_players == $NP) {
       check($jr['finished'] == 1, $tn . '/invalid finished');
       ksort($numbers);
