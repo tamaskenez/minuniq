@@ -17,9 +17,12 @@ and conduct MinUniq games.
 
 This backend has been written solely by me (Tamas Kenez) from
 May 12 - May 26 (2019).
+
 This is my first time I'm implementing web services and backend. Prior to this
 implementation I have never worked with web technologies professionally and
 have not studied them in school.
+
+[My resume](https://docs.google.com/document/d/1oq_I7zguXm6MrAvXdvBuX1Cofk7kRXwxY2rI1a6eEcc/edit?usp=sharing)
 
 ## Game play
 
@@ -82,7 +85,7 @@ the data we need to store in game. It contains 4 tables:
 I chose not to enforce foreign keys in the database, because the business logic
 already enforces those and it would make DB operations slower.
 
-#### Synchronization
+### Synchronization
 
 Simultaneous request may modify player and game data. To prevent data corruption
 we use row locking with the following rules:
@@ -92,30 +95,43 @@ we use row locking with the following rules:
 - Any operation modifying data related to an ongoing game, must lock the row
   in `current_game`.
 - Operations modifying both player and current game data lock first the `player`
-  row then the `current_game` row.
+  row then the `current_game` row to prevent deadlocks. This is used in the
+  `join-game` request.
 
-The main place synchronization is used is the `join-player` request. We first
-lock the player's row, validate the join request (if the player has sufficient
-balance and not already participating in the game) then we lock the row in
-`current_game`.
+## Testing
 
-#### The join-game request
+The implementation provides a test suite with the following parts:
 
-- First we check if the player has enough balance for a bet, by locking the
-  player's row.
-- We check if the player is participating in this game with a (game_type_id,
-  player_id) search in `game_picked_numbers`.
-- At his point we lock and retrieve information about the `current_game`.
-- Record the picked number `game_picked_numbers` and update player's balance
-  `player`, both rows are locked by us.
-- If this is the first
-
+- Create, initialize new database from script and verify tables.
+- Smoke-test of `register-player`/`top-up-balance`/`delete-player` API,
+  verifying the result directly (in a white-box manner).
+- Unit test of all API requests, testing all corner cases. Since certain request
+  make sense only under certain circumstances, the unit tests are not isolated
+  but are building on top of each other.
+- Exhaustive test of the 3-player game (trying all combinations of picked
+  numbers).
+- Random tests of 3 the game types (fix fixed seed)
 
 ## Missing features
 
-- Scalability
-- Logs
 - Authentication
-- Polling, real-time data stream
-- Performance benchmarks
-- Further optimization: less requests
+- Scalability: the `player` table could be partitioned on geolocation. The
+  `current_game` and `game_picked_numbers` tables could be extracted into
+  a separate game server backend which could be have multiple instances.
+  Players would be assigned to a fixed external game server if the load
+  increases then back to the central one if it decreases. Since different
+  game types may have very different loads, a single game server could service
+  only one type of game.
+- Polling, real-time data stream: the front-end should receive real-time
+  updates about the game state. It can be implemented with polling, long-polling
+  or websockets (best solution).
+- Performance benchmarks: a fixed number of random games would be played on
+  the test server and time would be measured.
+- Performance monitoring: the requests would measure the time it takes to
+  server the them and notify the admin on anomalies.
+- Logs: all transactions could be logged to a NoSql data store.
+- Further optimization: Using more complex request could reduce the number
+  of requests the frontend is calling.
+- Non-API files and admin operations are not protected in the deployed backend.
+- Unit testing could be done in an isolated way by supplying snapshots to the
+  tests.
