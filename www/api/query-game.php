@@ -16,7 +16,7 @@ $db = open_db();
 
 try {
   $stmt = $db->prepare(
-    "SELECT game_type_id, num_players, winner_number" .
+    "SELECT game_type_id, num_players" .
     "  FROM current_game" .
     "  WHERE game_id=:game_id");
   $stmt->bindParam(':game_id', $game_id);
@@ -26,7 +26,7 @@ try {
   if ($row) {
     $game_type_id = $row[0];
     $num_players = $row[1];
-    $winner_number = $row[2];
+    $winner_number = NULL;
     $finished = FALSE;
     $winner_email = NULL;
   } else {

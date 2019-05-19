@@ -52,7 +52,7 @@ try {
 
   // Lock and retrieve current game row.
   $stmt = $db->prepare(
-    "SELECT num_players, winner_number, game_id" .
+    "SELECT num_players, game_id" .
     "  FROM current_game" .
     "  WHERE game_type_id=:game_type_id" .
     "  FOR UPDATE");
@@ -67,8 +67,7 @@ try {
   assert_or_die(is_numeric($row[0]),
     HttpCode::INTERNAL_SERVER_ERROR, "Field 'num_players' is not an integer.");
   $old_num_players = intval($row[0]);
-  $old_winner_number = $row[1];
-  $game_id = $row[2];
+  $game_id = $row[1];
 
   // Record picked number.
   $stmt = $db->prepare(
@@ -88,12 +87,11 @@ try {
   $stmt->bindParam(':new_balance', $new_balance);
   checked_execute_query($stmt);
 
-  // Calculate new winner number.
   if ($old_num_players == 0) {
     // First player in this game.
     assert_or_die(is_null($game_id),
       HttpCode::INTERNAL_SERVER_ERROR, "Exisiting game has 0 players.");
-    $new_winner_number = $picked_number;
+    // Open new game in game_history, we need a new valid game_id.
     $stmt = $db->prepare(
       "INSERT INTO game_history (game_type_id)" .
       "  VALUES (:game_type_id)");
@@ -108,33 +106,6 @@ try {
     assert_or_die(!is_null($game_id),
       HttpCode::INTERNAL_SERVER_ERROR,
       "Existing game with players has no game_id.");
-
-    // Recalculate winner number only if it's NULL or greater then current
-    // picked number,  otherwise the current winner number won't change.
-    if (is_null($old_winner_number) || $picked_number <= $old_winner_number) {
-      // Select the minimum of unique numbers in the current game.
-      $stmt = $db->prepare(
-        "SELECT MIN(picked_number) FROM" .
-        "  (SELECT picked_number" .
-        "   FROM game_picked_numbers" .
-        "   WHERE game_type_id=:game_type_id" .
-        "   GROUP BY picked_number" .
-        "   HAVING COUNT(1) = 1" .
-        "   ) AS inner_query");
-      $stmt->bindParam(':game_type_id', $game_type_id);
-
-      checked_execute_query($stmt);
-      $row = $stmt->fetch(PDO::FETCH_NUM);
-      assert_or_die($row,
-        HttpCode::INTERNAL_SERVER_ERROR, "Minimum query returned no rows.");
-      if (is_null($row[0])) {
-        $new_winner_number = NULL;
-      } else {
-        $new_winner_number = intval($row[0]);
-      }
-    } else {
-      $new_winner_number = $old_winner_number;
-    }
   }
 
   // Update current game row.
@@ -142,11 +113,10 @@ try {
   $maybe_update_game_id = $old_num_players == 0 ? ", game_id=:game_id" : "";
   $stmt = $db->prepare(
     "UPDATE current_game" .
-    "  SET num_players=:new_num_players, winner_number=:new_winner_number" .
+    "  SET num_players=:new_num_players" .
     "  $maybe_update_game_id" .
     "  WHERE game_type_id=:game_type_id");
   $stmt->bindParam(':new_num_players', $new_num_players);
-  $stmt->bindParam(':new_winner_number', $new_winner_number);
   $stmt->bindParam(':game_type_id', $game_type_id);
   if ($old_num_players == 0) {
     $stmt->bindParam(':game_id', $game_id);
@@ -161,6 +131,28 @@ try {
 
     assert_or_die($total_num_players == $new_num_players,
       HttpCode::INTERNAL_SERVER_ERROR, "Too many players in game.");
+
+    // Calculate winner number.
+    // Select the minimum of unique numbers in the current game.
+    $stmt = $db->prepare(
+      "SELECT MIN(picked_number) FROM" .
+      "  (SELECT picked_number" .
+      "   FROM game_picked_numbers" .
+      "   WHERE game_type_id=:game_type_id" .
+      "   GROUP BY picked_number" .
+      "   HAVING COUNT(1) = 1" .
+      "   ) AS inner_query");
+    $stmt->bindParam(':game_type_id', $game_type_id);
+
+    checked_execute_query($stmt);
+    $row = $stmt->fetch(PDO::FETCH_NUM);
+    assert_or_die($row,
+      HttpCode::INTERNAL_SERVER_ERROR, "Minimum query returned no rows.");
+    if (is_null($row[0])) {
+      $new_winner_number = NULL;
+    } else {
+      $new_winner_number = intval($row[0]);
+    }
 
     // Calculate winner number and player.
     if (is_null($new_winner_number)) {
@@ -202,7 +194,7 @@ try {
     // Reset current game.
     $stmt = $db->prepare(
       "UPDATE current_game" .
-      "  SET num_players=0, winner_number=NULL, game_id=NULL" .
+      "  SET num_players=0, game_id=NULL" .
       "  WHERE game_type_id=:game_type_id");
     $stmt->bindParam(':game_type_id', $game_type_id);
     checked_execute_query($stmt);

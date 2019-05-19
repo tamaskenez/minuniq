@@ -34,11 +34,11 @@ function get_db_dsn($dbname_selector) {
     $dbport = $_SERVER['RDS_PORT'];
   } else {
     $dbhost = DbConfig::LOCAL_HOST;
-    $dbport = null;
+    $dbport = NULL;
   }
 
   if ($dbname_selector == 'none') {
-    $dbname = null;
+    $dbname = NULL;
   } else {
     $dbname = get_db_name($dbname_selector == 'test');
   }

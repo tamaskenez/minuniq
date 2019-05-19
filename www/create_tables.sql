@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost:8889
--- Generation Time: May 13, 2019 at 01:53 PM
+-- Generation Time: May 19, 2019 at 05:48 PM
 -- Server version: 5.7.25
 -- PHP Version: 7.3.1
 
@@ -23,7 +23,6 @@ SET time_zone = "+00:00";
 CREATE TABLE `current_game` (
   `game_type_id` int(11) NOT NULL,
   `num_players` int(11) NOT NULL,
-  `winner_number` int(11) DEFAULT NULL,
   `game_id` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
@@ -31,10 +30,10 @@ CREATE TABLE `current_game` (
 -- Dumping data for table `current_game`
 --
 
-INSERT INTO `current_game` (`game_type_id`, `num_players`, `winner_number`, `game_id`) VALUES
-(0, 0, NULL, NULL),
-(1, 0, NULL, NULL),
-(2, 0, NULL, NULL);
+INSERT INTO `current_game` (`game_type_id`, `num_players`, `game_id`) VALUES
+(0, 0, NULL),
+(1, 0, NULL),
+(2, 0, NULL);
 
 -- --------------------------------------------------------
 
