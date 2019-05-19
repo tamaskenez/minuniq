@@ -3,10 +3,10 @@
 require_once 'util.php';
 
 class DbConfig {
-  const HOST = "localhost";
-  const USERNAME = "root";
-  const PASSWORD = "root";
-  const DB_NAME = "minuniq";
+  const LOCAL_HOST = "localhost";
+  const LOCAL_USERNAME = "root";
+  const LOCAL_PASSWORD = "rootroot";
+  const LOCAL_DB_NAME = "minuniq";
   const TEST_DB_NAME = "minuniq_test";
   const USE_TEST_DB_FIELD = "use-test-db";
 }
@@ -15,15 +15,69 @@ class MySql {
   const ER_DUP_ENTRY = 1062;
 }
 
-function open_db_1($test) {
-  $name = $test ? DbConfig::TEST_DB_NAME : DbConfig::DB_NAME;
+function get_db_name($test) {
+  if ($test) {
+    return DbConfig::TEST_DB_NAME;
+  } else {
+    if (isset($_SERVER['RDS_HOSTNAME'])) {
+      return $_SERVER['RDS_DB_NAME'];
+    } else {
+      return DbConfig::LOCAL_DB_NAME;
+    }
+  }
+}
 
-  $host = DbConfig::HOST;
-  $username = DbConfig::USERNAME;
-  $password = DbConfig::PASSWORD;
+function get_db_dsn($dbname_selector) {
+  $charset = 'utf8';
+  if (isset($_SERVER['RDS_HOSTNAME'])) {
+    $dbhost = $_SERVER['RDS_HOSTNAME'];
+    $dbport = $_SERVER['RDS_PORT'];
+  } else {
+    $dbhost = DbConfig::LOCAL_HOST;
+    $dbport = null;
+  }
 
+  if ($dbname_selector == 'none') {
+    $dbname = null;
+  } else {
+    $dbname = get_db_name($dbname_selector == 'test');
+  }
+
+  $dsn = "mysql:host={$dbhost};charset={$charset}";
+  if (!is_null($dbport)) {
+    $dsn = $dsn . ";port={$dbport}";
+  }
+  if (!is_null($dbname)) {
+    $dsn = $dsn . ";dbname={$dbname}";
+  }
+  return $dsn;
+}
+
+function new_pdo($dsn) {
+  if (isset($_SERVER['RDS_HOSTNAME'])) {
+    $username = $_SERVER['RDS_USERNAME'];
+    $password = $_SERVER['RDS_PASSWORD'];
+  } else {
+    $username = DbConfig::LOCAL_USERNAME;
+    $password = DbConfig::LOCAL_PASSWORD;
+  }
+  return new PDO($dsn, $username, $password);
+}
+
+function open_connection_without_db() {
   try {
-    return new PDO("mysql:host=$host;dbname=$name", $username, $password);
+    return new_pdo(get_db_dsn('none'));
+  } catch(Exception $exc) {
+    http_response_code(HttpCode::SERVICE_UNAVAILABLE);
+    die(json_encode(array(
+      "error" => "Can't connect to database.",
+      "message" => $exc->getMessage())));
+  }
+}
+
+function open_db_1($test) {
+  try {
+    return new_pdo(get_db_dsn($test ? 'test' : 'main'));
   } catch(Exception $exc) {
     http_response_code(503);
     die(json_encode(array(
@@ -44,26 +98,12 @@ function open_db() {
   return open_db_1($test);
 }
 
-function open_connection_without_db() {
-  $host = DbConfig::HOST;
-  $username = DbConfig::USERNAME;
-  $password = DbConfig::PASSWORD;
-
-  try {
-    return new PDO("mysql:host=$host", $username, $password);
-  } catch(Exception $exc) {
-    http_response_code(HttpCode::SERVICE_UNAVAILABLE);
-    die(json_encode(array(
-      "error" => "Can't connect to database.",
-      "message" => $exc->getMessage())));
-  }
-}
-
-function create_empty_test_db() {
+function drop_and_init_db($test) {
   try {
     $db = open_connection_without_db();
 
-    $name = DbConfig::TEST_DB_NAME;
+
+    $name = get_db_name($test);
 
     $db->query("DROP DATABASE $name"); // May fail.
 
