@@ -135,3 +135,4 @@ The implementation provides a test suite with the following parts:
 - Non-API files and admin operations are not protected in the deployed backend.
 - Unit testing could be done in an isolated way by supplying snapshots to the
   tests.
+- Send email to participants when game finished.

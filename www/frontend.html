@@ -47,6 +47,7 @@
         set_logged_out();
       }
 
+      // Escapes and assembles dictionary to http request.
       function http_build_request(args) {
         let result = null;
         for(let [key, value] of Object.entries(args)) {
@@ -56,6 +57,7 @@
         return result === null ? '' : result;
       }
 
+      // Error, with http status code added.
       class HttpError extends Error {
         constructor(status, ...params) {
           super(...params);
@@ -67,6 +69,7 @@
         }
       }
 
+      // Return OK with the json-decoded response or throw exception.
       async function fetch_get(url, args) {
         const request_url = url + '?' + http_build_request(args);
         const response = await fetch(request_url, {
@@ -79,6 +82,9 @@
         }
       }
 
+      // Return OK with the json-decoded response or throw exception.
+      // set expect_result = false if no result is expected (otherwise
+      // Response.json() will throw).
       async function fetch_post(url, args, expect_result) {
         const response = await fetch(url, {
             method: 'post',
@@ -94,6 +100,7 @@
         }
       }
 
+      // Creates HttpError from Response.
       async function httpErrorFromResponse(response) {
         let json;
         try {
