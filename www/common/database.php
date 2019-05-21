@@ -5,7 +5,7 @@ require_once 'util.php';
 class DbConfig {
   const LOCAL_HOST = "localhost";
   const LOCAL_USERNAME = "root";
-  const LOCAL_PASSWORD = "rootroot";
+  const LOCAL_PASSWORD = "root";
   const LOCAL_DB_NAME = "minuniq";
   const TEST_DB_NAME = "minuniq_test";
   const USE_TEST_DB_FIELD = "use-test-db";
@@ -119,7 +119,7 @@ function drop_and_init_db($test) {
 }
 
 function run_db_init_script($db) {
-  $path = $_SERVER['DOCUMENT_ROOT'] . '/create_tables.sql';
+  $path = $_SERVER['DOCUMENT_ROOT'] . '/common/create_tables.sql';
   $commands = file_get_contents($path);
   if ($commands === FALSE) {
     die("Can't read file: $path");

@@ -1,8 +1,8 @@
 <?php
 
-require '../get_prelude.php';
-require_once '../util.php';
-require_once '../game_config.php';
+require '../common/get_prelude.php';
+require_once '../common/util.php';
+require_once '../common/game_config.php';
 
 $game_id_string = nonempty_get_arg('game-id');
 $game_id = intval($game_id_string);
@@ -10,7 +10,7 @@ assert_or_die(
   is_numeric($game_id_string) || $game_id_string != $game_id,
   HttpCode::BAD_REQUEST, "Field 'game-id' is not valid.");
 
-require_once '../database.php';
+require_once '../common/database.php';
 
 $db = open_db();
 

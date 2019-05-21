@@ -1,8 +1,8 @@
 <?php
 
-require '../post_prelude.php';
-require_once '../util.php';
-require_once '../game_config.php';
+require '../common/post_prelude.php';
+require_once '../common/util.php';
+require_once '../common/game_config.php';
 
 // Validate arguments.
 $email = nonempty_post_arg('email');
@@ -17,8 +17,8 @@ assert_or_die(
 assert_or_die(is_valid_picked_number($picked_number),
   HttpCode::BAD_REQUEST, "Field 'picked-number' is not valid.");
 
-require_once '../database.php';
-require_once '../game_config.php';
+require_once '../common/database.php';
+require_once '../common/game_config.php';
 
 $db = open_db();
 

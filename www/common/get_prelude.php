@@ -1,6 +1,6 @@
 <?php
 
-require_once '../util.php';
+require_once 'util.php';
 
 header("Access-Control-Allow-Origin: *");
 header("Content-Type: application/json; charset=UTF-8");

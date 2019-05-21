@@ -1,9 +1,9 @@
 <?php
 
-require_once '../util.php';
-require_once '../database.php';
-require_once '../game_config.php';
-require_once '../test_functions.php';
+require_once '../common/util.php';
+require_once '../common/database.php';
+require_once '../common/game_config.php';
+require_once '../common/test_functions.php';
 
 
 function pr($x) {

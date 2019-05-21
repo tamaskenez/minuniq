@@ -1,12 +1,12 @@
 <?php
 
-require '../get_prelude.php';
-require_once '../util.php';
-require_once '../game_config.php';
+require '../common/get_prelude.php';
+require_once '../common/util.php';
+require_once '../common/game_config.php';
 
 $email = nonempty_get_arg('email');
 
-require_once '../database.php';
+require_once '../common/database.php';
 
 $db = open_db();
 

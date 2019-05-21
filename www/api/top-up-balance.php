@@ -1,7 +1,7 @@
 <?php
 
-require '../post_prelude.php';
-require_once '../util.php';
+require '../common/post_prelude.php';
+require_once '../common/util.php';
 
 $email = nonempty_post_arg('email');
 $amount = nonempty_post_arg('amount');
@@ -9,7 +9,7 @@ $amount_float = floatval($amount);
 
 assert_or_die(is_numeric($amount) && $amount_float > 0, HttpCode::BAD_REQUEST, "Field 'amount' is not a positive number.");
 
-require_once '../database.php';
+require_once '../common/database.php';
 
 $db = open_db();
 

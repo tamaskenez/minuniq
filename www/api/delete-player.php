@@ -2,12 +2,12 @@
 
 // delete-player is also POST request because in PHP the DELETE requests have
 // inferior support (content parsing).
-require '../post_prelude.php';
-require_once '../util.php';
+require '../common/post_prelude.php';
+require_once '../common/util.php';
 
 $email = nonempty_post_arg('email');
 
-require_once '../database.php';
+require_once '../common/database.php';
 
 $db = open_db();
 
