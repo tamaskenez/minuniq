@@ -21,9 +21,10 @@ $GAME_TYPES = array(
 $MAX_PICKED_NUMBER = 9999;
 $BET_AMOUNT = 1.0;
 
-function is_valid_picked_number($picked_number) {
-  global $MAX_PICKED_NUMBER;
-  return is_numeric($picked_number)
+function is_valid_picked_number($picked_number)
+{
+    global $MAX_PICKED_NUMBER;
+    return is_numeric($picked_number)
     && intval($picked_number) == $picked_number
     && 1 <= $picked_number && $picked_number <= $MAX_PICKED_NUMBER;
 }
