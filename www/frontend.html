@@ -8,28 +8,65 @@
         text-align: center;
       }
     </style>
+    <meta name="google-signin-scope" content="email">
+    <meta name="google-signin-client_id" content="327472483544-phdvskj7pkfkgs4fo6bf01cpap8qpthv.apps.googleusercontent.com">
+    <script src="https://apis.google.com/js/platform.js" async defer></script>
   </head>
   <body>
-    <label for="email" id="lbl_email"></label>
-    <input type="text" id="email">
-    <button type="button" id="btn_login"></button>
-    <br>
-    <label for="balance" id="lbl_balance">Balance: </label>
-    <input type="text" disabled="true" id="balance">
-    <button id="btn-top-up" onclick="onclick_top_up()">Top-up $10</button>
-    <br><br>
-    <table id="games-table">
-    </table>
+    <h1>MinUniq test frontend</h1>
+    <div id="div-not-logged-in">
+      <dl>
+        <dt><i>Sign-in with Google Authentication</i></dt>
+        <br>
+        <dd>
+          <div class="g-signin2" data-onsuccess="on_google_sign_in" data-onfailure="on_google_sign_in_failure" data-theme="dark"></div>
+        </dd>
+        <br>
+        <hr>
+        <dt><i>Login/Sign-up without authentication (for easier testing)</i></dt>
+        <br>
+        <dd>
+          <label for="email" id="lbl_email"></label>
+          <input type="text" id="email">
+          <button type="button" id="btn_login"></button>
+        </dd>
+      </dl>
+    </div>
+    <div id="div-logged-id" hidden>
+      <label for="email" id="lbl_email">Logged in as: </label>
+      <input type="text" id="email" disabled="true" value="something@email.com">
+      <button type="button" id="btn_login">Logout</button>
+      <br>
+      <label for="balance" id="lbl_balance">Balance: </label>
+      <input type="text" disabled="true" id="balance">
+      <button id="btn-top-up" onclick="onclick_top_up()"></button>
+      <br><br>
+      <table id="games-table">
+      </table>
+    </div>
     <script>
       "use strict";
 
-      const BTN_TEXT_LOGIN_SIGNUP = "Login/Sign-up";
-      const BTN_TEXT_LOGOUT = "Logout";
       const BTN_TEXT_REFRESH = "Refresh";
+      const TOP_UP_FIXED_AMOUNT = 10;
 
-      let g_logged_in_email = null;
+      let g_logged_in_user = null;
       let g_game_types = null;
       let g_game_states = null;
+
+      function on_google_sign_in(google_user) {
+      }
+
+      function on_google_sign_in_failure() {
+      }
+
+      function UserWoAuth(email) {
+        this.email = email
+      }
+
+      function GoogleAuthUser(google_auth_id_token) {
+        this.id_token = google_auth_id_token;
+      }
 
       function OngoingGame(game_id, picked_number, num_players) {
         this.game_id = game_id;
@@ -120,35 +157,32 @@
         return new HttpError(response.status, text);
       }
 
-      async function get_player(email) {
+      async function get_player(user) {
         return await fetch_get(
-          'api/get-player.php', {
-            email: email
-          }
+          'api/get-player.php', user_to_args(user)
         );
       }
 
-      async function register_player(email) {
+      async function register_player(user) {
         return await fetch_post(
-          'api/register-player.php', {
-            email: email
-          }, false
+          'api/register-player.php', user_to_args(user), false
         );
       }
 
-      async function login_signup() {
+      async function login_signup_wo_auth() {
         const email = document.getElementById('email').value;
+        const user = new UserWoAuth(email);
         let player;
         try {
-          player = await get_player(email);
+          player = await get_player(user);
         } catch(error) {
           if (!('status' in error) || error.status != 404) {
             throw error;
           }
-          await register_player(email);
-          player = await get_player(email);
+          await register_player(user);
+          player = await get_player(user);
         }
-        set_logged_in_as(email);
+        set_logged_in_as(user);
         set_balance(player.balance);
         let promises = [];
         for(let i = 0; ; ++i) {
@@ -161,15 +195,15 @@
         }
         Promise.all(promises)
         .then(function() {
-          update_game_table(email, g_game_types, g_game_states);
+          update_game_table(user.email, g_game_types, g_game_states);
         })
         .catch(function(error) {
           display_error('Can\'t retrieve game state: ', error);
         })
       }
 
-      function onclick_btn_login_signup() {
-        login_signup()
+      function onclick_btn_login_signup_wo_auth() {
+        login_signup_wo_auth()
         .catch(function(error){
           display_error('Can\'t login/sign-up (', error);
         });
@@ -196,29 +230,37 @@
         g_game_states[game_type_id] = game_state;
       }
 
+      function user_to_args(user) {
+        if (user instanceof UserWoAuth) {
+          return {'email': user.email}
+        } else if (user instanceof GoogleAuthUser) {
+          return {'google_auth_id_token': user.id_token}
+        } else {
+          throw new Error("Invalid user");
+        }
+      }
+
       async function async_join_game(game_type_id) {
-        const email = g_logged_in_email;
+        const user = g_logged_in_user;
         const picked_number = document.getElementById('join-number-' + game_type_id).value;
-        let result = await fetch_post('api/join-game.php', {
-          'email': email,
-          'game-type-id': game_type_id,
-          'picked-number': picked_number
-        }, true);
+        let args = user_to_args(user);
+        args['game_type_id'] = game_type_id;
+        args['picked-number'] = picked_number;
+        let result = await fetch_post('api/join-game.php', args, true);
         await update_game(result['game-id'], picked_number);
         update_game_table(email, g_game_types, g_game_states);
       }
 
-      async function async_top_up(email) {
-        await fetch_post('api/top-up-balance.php', {
-          'email': email,
-          'amount': 10
-        }, false);
+      async function async_top_up(user) {
+        let args = user_to_args(user);
+        args.amount = TOP_UP_FIXED_AMOUNT;
+        await fetch_post('api/top-up-balance.php', args, false);
         const player = await get_player(email);
         set_balance(player.balance);
       }
 
       function onclick_top_up() {
-        async_top_up(g_logged_in_email)
+        async_top_up(g_logged_in_user)
         .catch(function(error) {
           display_error('Can\'t top-up: ', error);
         });
@@ -231,22 +273,30 @@
         });
       }
 
-      function set_logged_in_as(email) {
-        g_logged_in_email = email;
+      function set_logged_in_as(user) {
+        g_logged_in_user = user;
         document.getElementById('lbl_email').innerHTML = 'Logged in as:';
         document.getElementById('btn_login').innerHTML = 'Logout';
         document.getElementById('btn_login').onclick = onclick_btn_logout;
-        document.getElementById('email').value = email;
+        document.getElementById('email').value = user.email;
         document.getElementById('email').disabled = true;
         document.getElementById('btn-top-up').hidden = false;
         update_game_table(email, g_game_types, g_game_states);
       }
 
       function set_logged_out() {
-        g_logged_in_email = null;
+        if (g_logged_in_user instanceof UserWoAuth) {
+          // Nothing to do.
+        } else if (g_logged_in_user instanceof GoogleAuthUser) {
+        } else if (g_logged_in_user !== null) {
+          throw new Error("Invalid user");
+        }
+        g_logged_in_user = null;
         document.getElementById('lbl_email').innerHTML = 'Email:';
-        document.getElementById('btn_login').innerHTML = 'Login/Sign-up';
-        document.getElementById('btn_login').onclick = onclick_btn_login_signup;
+        document.getElementById('btn_login').innerHTML =
+          'Sign In';
+        document.getElementById('btn_login').onclick =
+          onclick_btn_login_signup_wo_auth;
         document.getElementById('email').disabled = false;
         document.getElementById('balance').value = '-';
         document.getElementById('btn-top-up').hidden = true;
@@ -323,6 +373,8 @@
       }
 
       window.onload = function() {
+        document.getElementById('btn-top-up').innerHTML = 'Top-up $'
+          + TOP_UP_FIXED_AMOUNT;
         fetch_get('api/list-game-types.php', {})
         .then(function(game_types) {
           init_game_table(game_types);
