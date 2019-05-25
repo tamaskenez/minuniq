@@ -1,20 +1,22 @@
 <?php
 
-require '../common/get_prelude.php';
+require '../common/post_prelude.php';
 require_once '../common/util.php';
 require_once '../common/game_config.php';
-
-$email = nonempty_get_arg('email');
-
+require_once '../common/auth.php';
 require_once '../common/database.php';
 
-$db = open_db();
-
 try {
+    $user = userdata_from_post();
+
+    $db = open_db();
+
     $db->beginTransaction();
 
-    $stmt = $db->prepare("SELECT player_id, balance FROM player WHERE email=:email");
-    $stmt->bindParam(':email', $email);
+    $stmt = $db->prepare("SELECT player_id, balance, email" .
+      "  FROM player" .
+      "  WHERE google_user_id=:google_user_id");
+    $stmt->bindParam(':google_user_id', $user['google_user_id']);
 
     checked_execute_query($stmt);
 
@@ -23,6 +25,17 @@ try {
 
     $player_id = $row[0];
     $balance = $row[1];
+
+    // Update email if different.
+    if ($user['email'] != $row[2]) {
+        $stmt = $db->prepare(
+          "UPDATE player" .
+          "  SET email=:email" .
+          "  WHERE google_user_id=:google_user_id");
+          $stmt->bindParam(':email', $user['email']);
+          $stmt->bindParam(':google_user_id', $user['google_user_id']);
+        checked_execute_query($stmt);
+    }
 
     $stmt = $db->prepare(
         "SELECT game_id" .

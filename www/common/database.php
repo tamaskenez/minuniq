@@ -22,7 +22,7 @@ function get_db_name($test)
     if ($test) {
         return DbConfig::TEST_DB_NAME;
     } else {
-        if (isset($_SERVER['RDS_HOSTNAME'])) {
+        if (array_key_exists('RDS_HOSTNAME', $_SERVER)) {
             return $_SERVER['RDS_DB_NAME'];
         } else {
             return DbConfig::LOCAL_DB_NAME;
@@ -33,7 +33,7 @@ function get_db_name($test)
 function get_db_dsn($dbname_selector)
 {
     $charset = 'utf8';
-    if (isset($_SERVER['RDS_HOSTNAME'])) {
+    if (array_key_exists('RDS_HOSTNAME', $_SERVER)) {
         $dbhost = $_SERVER['RDS_HOSTNAME'];
         $dbport = $_SERVER['RDS_PORT'];
     } else {
@@ -59,7 +59,7 @@ function get_db_dsn($dbname_selector)
 
 function new_pdo($dsn)
 {
-    if (isset($_SERVER['RDS_HOSTNAME'])) {
+    if (array_key_exists('RDS_HOSTNAME', $_SERVER)) {
         $username = $_SERVER['RDS_USERNAME'];
         $password = $_SERVER['RDS_PASSWORD'];
     } else {
@@ -103,9 +103,9 @@ function open_db_1($test)
 
 function open_db()
 {
-    if (isset($_POST[DbConfig::USE_TEST_DB_FIELD])) {
+    if (array_key_exists(DbConfig::USE_TEST_DB_FIELD, $_POST)) {
         $test = $_POST[DbConfig::USE_TEST_DB_FIELD];
-    } else if (isset($_GET[DbConfig::USE_TEST_DB_FIELD])) {
+    } else if (array_key_exists(DbConfig::USE_TEST_DB_FIELD, $_GET)) {
         $test = $_GET[DbConfig::USE_TEST_DB_FIELD];
     } else {
         $test = false;
@@ -153,12 +153,13 @@ function run_db_init_script($db)
     }
 }
 
-function select_player_for_update_or_null($db, $email)
+function select_player_for_update_or_null($db, $user)
 {
     $stmt = $db->prepare(
-        "SELECT player_id, balance FROM player WHERE email=:email FOR UPDATE"
+        "SELECT player_id, balance FROM player" .
+        "  WHERE google_user_id=:id FOR UPDATE"
     );
-    $stmt->bindParam(':email', $email);
+    $stmt->bindParam(':id', $user['google_user_id']);
 
     $r = $stmt->execute();
     assert_or_die(
@@ -176,18 +177,13 @@ function select_player_for_update_or_null($db, $email)
 
     assert_or_die(
         is_numeric($balance),
-        HttpCode::INTERNAL_SERVER_ERROR, "Player balance is not numeric in database."
+        HttpCode::INTERNAL_SERVER_ERROR,
+          "Player balance is not numeric in database."
     );
 
     return array(
     'player_id' => $player_id,
     'balance' => floatval($balance));
-}
-
-function select_player_balance_for_update_or_null($db, $email)
-{
-    $bp = select_player_for_update_or_null($db, $email);
-    return is_null($bp) ? null : $bp['balance'];
 }
 
 function checked_execute_query($stmt)
@@ -202,7 +198,8 @@ function checked_execute_query($stmt)
     }
     assert_or_die_msg(
         $r !== false,
-        HttpCode::SERVICE_UNAVAILABLE, "Can't execute query.", $stmt->errorInfo()[2]
+        HttpCode::SERVICE_UNAVAILABLE, "Can't execute query.",
+          $stmt->errorInfo()[2]
     );
 }
 

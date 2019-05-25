@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost:8889
--- Generation Time: May 19, 2019 at 05:48 PM
+-- Generation Time: May 25, 2019 at 02:00 PM
 -- Server version: 5.7.25
 -- PHP Version: 7.3.1
 
@@ -70,7 +70,8 @@ CREATE TABLE `game_picked_numbers` (
 CREATE TABLE `player` (
   `player_id` int(11) NOT NULL,
   `email` varchar(256) NOT NULL,
-  `balance` decimal(12,2) NOT NULL DEFAULT '0.00'
+  `balance` decimal(12,2) NOT NULL DEFAULT '0.00',
+  `google_user_id` varchar(256) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 --
@@ -100,7 +101,8 @@ ALTER TABLE `game_picked_numbers`
 --
 ALTER TABLE `player`
   ADD PRIMARY KEY (`player_id`),
-  ADD UNIQUE KEY `email_ix` (`email`) USING HASH;
+  ADD UNIQUE KEY `google_user_id_ix` (`google_user_id`) USING BTREE,
+  ADD KEY `email_ix` (`email`) USING BTREE;
 
 --
 -- AUTO_INCREMENT for dumped tables

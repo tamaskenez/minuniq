@@ -114,25 +114,29 @@ The implementation provides a test suite with the following parts:
 
 ## Missing features
 
-- Authentication
-- Scalability: the `player` table could be partitioned on geolocation. The
-  `current_game` and `game_picked_numbers` tables could be extracted into
-  a separate game server backend which could be have multiple instances.
-  Players would be assigned to a fixed external game server if the load
-  increases then back to the central one if it decreases. Since different
-  game types may have very different loads, a single game server could service
-  only one type of game.
 - Polling, real-time data stream: the front-end should receive real-time
   updates about the game state. It can be implemented with polling, long-polling
   or websockets (best solution).
+- Scalability: the `player` table could be partitioned base on the player's
+  location. The `current_game` and `game_picked_numbers` tables could be
+  extracted into a separate game server backend which could have multiple
+  instances running.
+  Players would be initially assigned to the same external game server. When
+  the load increases more and more player would be moved out to a second, third,
+  etc... instances.
 - Performance benchmarks: a fixed number of random games would be played on
   the test server and time would be measured.
 - Performance monitoring: the requests would measure the time it takes to
   server the them and notify the admin on anomalies.
 - Logs: all transactions could be logged to a NoSql data store.
-- Further optimization: Using more complex request could reduce the number
+- Optimization: Using more complex requests could reduce the number
   of requests the frontend is calling.
-- Non-API files and admin operations are not protected in the deployed backend.
-- Unit testing could be done in an isolated way by supplying snapshots to the
-  tests.
+- Non-API files and admin operations should be protected in the deployed backend.
+- Unit testing could be done in an isolated way (instead of the current
+  interleaved way) by supplying snapshots to the tests.
 - Send email to participants when game finished.
+- Google authentication tests are missing.
+- Emails should not be stored. Instead: retrieve email on session start and
+  store with session.
+- Backend should not always call Google Auth services. Instead, use session-id
+  to track which user is logged in.

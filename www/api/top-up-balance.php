@@ -2,8 +2,9 @@
 
 require '../common/post_prelude.php';
 require_once '../common/util.php';
+require_once '../common/database.php';
+require_once '../common/auth.php';
 
-$email = nonempty_post_arg('email');
 $amount = nonempty_post_arg('amount');
 $amount_float = floatval($amount);
 
@@ -12,21 +13,22 @@ assert_or_die(
     "Field 'amount' is not a positive number."
 );
 
-require_once '../common/database.php';
-
-$db = open_db();
-
 try {
+    $user = userdata_from_post();
+
+    $db = open_db();
+
     $db->beginTransaction();
 
-    $old_balance = select_player_balance_for_update_or_null($db, $email);
+    $player = select_player_for_update_or_null($db, $user);
+    $old_balance = $player['balance'];
 
     assert_or_die(!is_null($old_balance), HttpCode::NOT_FOUND, "Player not found.");
 
     $stmt = $db->prepare(
-        "UPDATE player SET balance=:new_balance WHERE email=:email"
+        "UPDATE player SET balance=:new_balance WHERE player_id=:id"
     );
-    $stmt->bindParam(':email', $email);
+    $stmt->bindParam(':id', $player['player_id']);
     $new_balance = $old_balance + $amount_float;
     $stmt->bindParam(':new_balance', $new_balance);
 

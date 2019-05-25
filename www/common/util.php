@@ -6,6 +6,7 @@ class HttpCode
     const CREATED = 201;
     const BAD_REQUEST = 400;
     const PAYMENT_REQUIRED = 402;
+    const FORBIDDEN = 403;
     const NOT_FOUND = 404;
     const METHOD_NOT_ALLOWED = 405;
     const INTERNAL_SERVER_ERROR = 500;
@@ -26,6 +27,13 @@ function assert_or_die_msg($condition, $code, $error, $message)
         http_response_code($code);
         die(json_encode(array("error" => $error, "message" => $message)));
     }
+}
+
+function var_error_log($x)
+{
+    ob_start();
+    var_dump($x);
+    error_log(ob_get_clean());
 }
 
 // method can be 'GET', 'POST' (form-data) and 'POSTX' (x-www-form-urlencoded)
@@ -80,7 +88,7 @@ function curl_request($url, $method, $data)
 function nonempty_post_arg($name)
 {
     assert_or_die(
-        isset($_POST[$name]),
+        array_key_exists($name, $_POST),
         HttpCode::BAD_REQUEST, "Field '$name' is missing."
     );
     $r = htmlspecialchars(strip_tags($_POST[$name]));
@@ -91,11 +99,25 @@ function nonempty_post_arg($name)
 function nonempty_get_arg($name)
 {
     assert_or_die(
-        isset($_GET[$name]),
+        array_key_exists($name, $_GET),
         HttpCode::BAD_REQUEST, "Field '$name' is missing."
     );
     $r = htmlspecialchars(strip_tags($_GET[$name]));
     assert_or_die(!empty($r), HttpCode::BAD_REQUEST, "Field '$name' is empty.");
+    return $r;
+}
+
+function nonempty_post_arg_or_null($name)
+{
+    if (!array_key_exists($name, $_POST)) {
+        return null;
+    }
+
+    $r = htmlspecialchars(strip_tags($_POST[$name]));
+    if ($r == "") {
+        return null;
+    }
+
     return $r;
 }
 

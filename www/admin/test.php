@@ -124,7 +124,7 @@ function player_crud_test()
     $email = 'example@email.com';
 
     test_missing_empty_email('POST', 'register-player', array());
-    test_missing_empty_invalid_email('GET', 'get-player', "$email.", array());
+    test_missing_empty_invalid_email('POST', 'get-player', "$email.", array());
 
     $r = test_curl_request('POST', 'register-player', array('email' => $email));
     check($r['response'] == HttpCode::CREATED, 'player');
@@ -136,7 +136,7 @@ function player_crud_test()
     $r = test_curl_request('POST', 'register-player', array('email' => $email));
     check($r['response'] == HttpCode::BAD_REQUEST, $tn);
 
-    test_missing_empty_invalid_email('GET', 'get-player', "$email.", array());
+    test_missing_empty_invalid_email('POST', 'get-player', "$email.", array());
 
     // Top-up.
     $amount1 = 123.45;
@@ -181,7 +181,7 @@ function player_crud_test()
     $r = test_curl_request('POST', 'delete-player', array('email' => $email));
     check($r['response'] == HttpCode::OK, 'player/delete');
 
-    $r = test_curl_request('GET', 'get-player', array('email' => $email));
+    $r = test_curl_request('POST', 'get-player', array('email' => $email));
     check($r['response'] == HttpCode::NOT_FOUND, 'player/delete-missing');
 
 
@@ -314,7 +314,7 @@ function game_test_with_picked_numbers($game_type_id, $players, $tn)
         'game-type-id' => $game_type_id,
         'picked-number' => $picked_number);
         ++$num_players;
-        if (isset($numbers[$picked_number])) {
+        if (array_key_exists($picked_number, $numbers)) {
             $numbers[$picked_number] = $numbers[$picked_number] + 1;
         } else {
             $numbers[$picked_number] = 1;
@@ -322,7 +322,7 @@ function game_test_with_picked_numbers($game_type_id, $players, $tn)
         $r = test_curl_request('POST', 'join-game', $args);
         check($r['response'] == HttpCode::OK, $tn);
         $jr = json_decode($r['transfer'], true);
-        check(isset($jr['game-id']), $tn);
+        check(array_key_exists('game-id', $jr), $tn);
         if (is_null($game_id)) {
             $game_id = $jr['game-id'];
         } else {
@@ -350,8 +350,8 @@ function game_test_with_picked_numbers($game_type_id, $players, $tn)
                 }
             }
             if (is_null($winner_number)) {
-                check(!isset($jr['winner_number']), $tn . '/winner number set');
-                check(!isset($jr['winner_email']), $tn . '/winner email set');
+                check(!array_key_exists('winner_number', $jr), $tn . '/winner number set');
+                check(!array_key_exists('winner_email', $jr), $tn . '/winner email set');
             } else {
                 foreach ($players as $k => $v) {
                     if ($v['picked-number'] == $winner_number) {

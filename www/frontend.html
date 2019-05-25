@@ -28,14 +28,15 @@
         <dd>
           <label for="email" id="lbl_email"></label>
           <input type="text" id="email">
-          <button type="button" id="btn_login"></button>
+          <button type="button" id="btn_login" onclick="onclick_btn_login_signup_wo_auth()"></button>
         </dd>
       </dl>
     </div>
-    <div id="div-logged-id" hidden>
+    <div id="div-logged-in" hidden>
       <label for="email" id="lbl_email">Logged in as: </label>
-      <input type="text" id="email" disabled="true" value="something@email.com">
-      <button type="button" id="btn_login">Logout</button>
+      <input type="text" id="email-logged-in" disabled="true">
+      <button type="button" id="btn_login" onclick="onclick_btn_logout()">Logout</button>
+      <hr>
       <br>
       <label for="balance" id="lbl_balance">Balance: </label>
       <input type="text" disabled="true" id="balance">
@@ -54,17 +55,12 @@
       let g_game_types = null;
       let g_game_states = null;
 
-      function on_google_sign_in(google_user) {
-      }
-
-      function on_google_sign_in_failure() {
-      }
-
       function UserWoAuth(email) {
         this.email = email
       }
 
-      function GoogleAuthUser(google_auth_id_token) {
+      function GoogleAuthUser(email, google_auth_id_token) {
+        this.email = email;
         this.id_token = google_auth_id_token;
       }
 
@@ -81,6 +77,10 @@
       }
 
       function onclick_btn_logout() {
+        if (g_logged_in_user instanceof GoogleAuthUser) {
+          const auth2 = gapi.auth2.getAuthInstance();
+          auth2.signOut().then();
+        }
         set_logged_out();
       }
 
@@ -108,12 +108,16 @@
 
       // Return OK with the json-decoded response or throw exception.
       async function fetch_get(url, args) {
+        console.log("FETCH_GET " + url);
+        console.log("args: %o", args);
         const request_url = url + '?' + http_build_request(args);
         const response = await fetch(request_url, {
             method: 'get'
           });
         if (response.ok) {
-          return await response.json();
+          const r = await response.json();
+          console.log("result: %o", r);
+          return r;
         } else {
           throw await httpErrorFromResponse(response);
         }
@@ -123,6 +127,8 @@
       // set expect_result = false if no result is expected (otherwise
       // Response.json() will throw).
       async function fetch_post(url, args, expect_result) {
+        console.log("FETCH_POST " + url);
+        console.log("args: %o", args);
         const response = await fetch(url, {
             method: 'post',
             headers: {
@@ -131,7 +137,12 @@
             body: http_build_request(args)
           });
         if (response.ok) {
-          return expect_result ? await response.json() : null;
+          if (!expect_result) {
+            return null;
+          }
+          const r = await response.json();
+          console.log("result: %o", r);
+          return r;
         } else {
           throw await httpErrorFromResponse(response);
         }
@@ -158,8 +169,8 @@
       }
 
       async function get_player(user) {
-        return await fetch_get(
-          'api/get-player.php', user_to_args(user)
+        return await fetch_post(
+          'api/get-player.php', user_to_args(user), true
         );
       }
 
@@ -172,6 +183,10 @@
       async function login_signup_wo_auth() {
         const email = document.getElementById('email').value;
         const user = new UserWoAuth(email);
+        await async_sign_in(user);
+      }
+
+      async function async_sign_in(user) {
         let player;
         try {
           player = await get_player(user);
@@ -184,6 +199,7 @@
         }
         set_logged_in_as(user);
         set_balance(player.balance);
+
         let promises = [];
         for(let i = 0; ; ++i) {
           if (!(i in g_game_types)) {
@@ -198,15 +214,32 @@
           update_game_table(user.email, g_game_types, g_game_states);
         })
         .catch(function(error) {
-          display_error('Can\'t retrieve game state: ', error);
+          display_error('Can\'t retrieve game state', error);
         })
       }
 
       function onclick_btn_login_signup_wo_auth() {
         login_signup_wo_auth()
         .catch(function(error){
-          display_error('Can\'t login/sign-up (', error);
+          display_error('Can\'t login/sign-up', error);
         });
+      }
+
+      function on_google_sign_in(google_user) {
+        async_google_sign_in(google_user)
+        .catch(function(error){
+          display_error('Can\'t login/sign-up', error);
+        });
+      }
+
+      function on_google_sign_in_failure() {
+      }
+
+      async function async_google_sign_in(google_user) {
+        const id_token = google_user.getAuthResponse().id_token;
+        const email = google_user.getBasicProfile().getEmail();
+        const user = new GoogleAuthUser(email, id_token);
+        await async_sign_in(user);
       }
 
       async function update_game(game_id, picked_number) {
@@ -234,7 +267,7 @@
         if (user instanceof UserWoAuth) {
           return {'email': user.email}
         } else if (user instanceof GoogleAuthUser) {
-          return {'google_auth_id_token': user.id_token}
+          return {'google-id-token': user.id_token}
         } else {
           throw new Error("Invalid user");
         }
@@ -244,44 +277,45 @@
         const user = g_logged_in_user;
         const picked_number = document.getElementById('join-number-' + game_type_id).value;
         let args = user_to_args(user);
-        args['game_type_id'] = game_type_id;
+        args['game-type-id'] = game_type_id;
         args['picked-number'] = picked_number;
         let result = await fetch_post('api/join-game.php', args, true);
         await update_game(result['game-id'], picked_number);
-        update_game_table(email, g_game_types, g_game_states);
+        update_game_table(user.email, g_game_types, g_game_states);
       }
 
       async function async_top_up(user) {
         let args = user_to_args(user);
         args.amount = TOP_UP_FIXED_AMOUNT;
         await fetch_post('api/top-up-balance.php', args, false);
-        const player = await get_player(email);
+        const player = await get_player(user);
         set_balance(player.balance);
       }
 
       function onclick_top_up() {
         async_top_up(g_logged_in_user)
         .catch(function(error) {
-          display_error('Can\'t top-up: ', error);
+          display_error('Can\'t top-up', error);
         });
       }
 
       function onclick_join_game(game_type_id) {
         async_join_game(game_type_id)
         .catch(function(error) {
-          display_error('Can\'t join game: ', error);
+          display_error('Can\'t join game', error);
         });
       }
 
       function set_logged_in_as(user) {
         g_logged_in_user = user;
+        document.getElementById('div-not-logged-in').hidden = true;
+        document.getElementById('div-logged-in').hidden = false;
         document.getElementById('lbl_email').innerHTML = 'Logged in as:';
         document.getElementById('btn_login').innerHTML = 'Logout';
-        document.getElementById('btn_login').onclick = onclick_btn_logout;
-        document.getElementById('email').value = user.email;
-        document.getElementById('email').disabled = true;
+        document.getElementById('email-logged-in').value = user.email;
         document.getElementById('btn-top-up').hidden = false;
-        update_game_table(email, g_game_types, g_game_states);
+        reset_game_states(g_game_types);
+        update_game_table(user.email, g_game_types, g_game_states);
       }
 
       function set_logged_out() {
@@ -289,14 +323,14 @@
           // Nothing to do.
         } else if (g_logged_in_user instanceof GoogleAuthUser) {
         } else if (g_logged_in_user !== null) {
-          throw new Error("Invalid user");
+          throw new Error("Invalid user 1");
         }
         g_logged_in_user = null;
+        document.getElementById('div-not-logged-in').hidden = false;
+        document.getElementById('div-logged-in').hidden = true;
         document.getElementById('lbl_email').innerHTML = 'Email:';
         document.getElementById('btn_login').innerHTML =
           'Sign In';
-        document.getElementById('btn_login').onclick =
-          onclick_btn_login_signup_wo_auth;
         document.getElementById('email').disabled = false;
         document.getElementById('balance').value = '-';
         document.getElementById('btn-top-up').hidden = true;
@@ -307,11 +341,20 @@
         document.getElementById('balance').value = `$${balance}`;
       }
 
+      function reset_game_states(game_types) {
+        g_game_states = [];
+        for(let i = 0; ; ++i) {
+          if (!(i in g_game_types)) {
+            break;
+          }
+          g_game_states[i] = null;
+        }
+      }
+
       function init_game_table(game_types) {
         if (game_types !== null) {
           g_game_types = game_types;
         }
-        g_game_states = [];
         const table = document.getElementById('games-table');
         for(let i = 0; ; ++i) {
           if (!(i in g_game_types)) {
@@ -327,7 +370,6 @@
           td.id = 'game-row-join-' + i;
           td = tr.insertCell();
           td.id = 'game-row-last-' + i;
-          g_game_states[i] = null;
         }
       }
 
@@ -339,36 +381,39 @@
           const tdj = document.getElementById('game-row-join-' + i);
           const tdl = document.getElementById('game-row-last-' + i);
           const gs = game_states[i];
-          let inner_html;
+          let join_html, last_html ='';
           if (email === null) {
-            inner_html = '';
+            join_html = '';
           } else if (gs === null) {
-            inner_html =
-              `Your number: <input type="text" size="4" id="join-number-${i}">`
+            join_html = `Your number: <input type="text" size="4" id="join-number-${i}">`
               + `<button id="btn-join-${i}" onclick="onclick_join_game(${i})">`
               + 'JOIN</button>';
           } else if (gs instanceof OngoingGame) {
             const players_left =
               game_types[i]['num-players'] - gs.num_players
             if (gs.picked_number === null) {
-              inner_html = 'Joined';
+              join_html = 'Joined';
             } else {
-              inner_html = 'Joined with number ' + gs.picked_number;
+              join_html = 'Joined with number ' + gs.picked_number;
             }
-            inner_html = inner_html + ', waiting for ' + players_left
+            last_html = 'Waiting for ' + players_left
               + ((players_left == 1) ? ' player' : ' players');
           } else if (gs instanceof FinishedGame) {
+            join_html = `Your number: <input type="text" size="4" id="join-number-${i}">`
+              + `<button id="btn-join-${i}" onclick="onclick_join_game(${i})">`
+              + 'JOIN</button>';
             if (gs.winner_email === email) {
-              inner_html = `You won the last game with number: ${gs.winning_number}`;
+              last_html = `You won the last game with number: ${gs.winning_number}`;
             } else if (gs.winner_email !== null) {
-              inner_html = `Last game won by ${gs.winner_email} with number: ${gs.winning_number}`;
+              last_html = `Last game won by ${gs.winner_email} with number: ${gs.winning_number}`;
             } else {
-              innert_html = 'Last game had no winner';
+              last_html = 'Last game had no winner';
             }
           } else {
             throw "Invalid game state object";
           }
-          tdj.innerHTML = inner_html;
+          tdj.innerHTML = join_html;
+          tdl.innerHTML = last_html;
         }
       }
 
@@ -378,6 +423,7 @@
         fetch_get('api/list-game-types.php', {})
         .then(function(game_types) {
           init_game_table(game_types);
+          reset_game_states();
           set_logged_out();
         })
         .catch(function(error) {

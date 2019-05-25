@@ -4,17 +4,17 @@
 // inferior support (content parsing).
 require '../common/post_prelude.php';
 require_once '../common/util.php';
-
-$email = nonempty_post_arg('email');
-
 require_once '../common/database.php';
+require_once '../common/auth.php';
 
-$db = open_db();
 
 try {
+    $user = userdata_from_post();
+
+    $db = open_db();
 
     $db->beginTransaction();
-    $player = select_player_for_update_or_null($db, $email);
+    $player = select_player_for_update_or_null($db, $user);
     assert_or_die(
         !is_null($player),
         HttpCode::NOT_FOUND, "Player not found."

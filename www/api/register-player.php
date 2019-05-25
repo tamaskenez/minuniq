@@ -2,16 +2,18 @@
 
 require '../common/post_prelude.php';
 require_once '../common/util.php';
-
-$email = nonempty_post_arg('email');
-
+require_once '../common/auth.php';
 require_once '../common/database.php';
 
-$db = open_db();
-
 try {
-    $stmt = $db->prepare("INSERT INTO player SET email=:email");
-    $stmt->bindParam(':email', $email);
+    $user = userdata_from_post();
+
+    $db = open_db();
+
+    $stmt = $db->prepare(
+      "INSERT INTO player SET email=:email, google_user_id=:google_user_id");
+    $stmt->bindParam(':email', $user['email']);
+    $stmt->bindParam(':google_user_id', $user['google_user_id']);
 
     $r = $stmt->execute();
     if ($r === false) {

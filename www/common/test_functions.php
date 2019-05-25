@@ -73,7 +73,7 @@ function check_balance($expected, $actual, $msg)
 
 function check_player_balance($email, $expected, $test_name, $games)
 {
-    $r = test_curl_request('GET', 'get-player', array('email' => $email));
+    $r = test_curl_request('POST', 'get-player', array('email' => $email));
     check($r['response'] == HttpCode::OK, $test_name);
     $jr = json_decode($r['transfer'], true);
     check_balance($expected, $jr['balance'], $test_name);

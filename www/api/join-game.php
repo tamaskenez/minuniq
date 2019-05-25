@@ -3,9 +3,12 @@
 require '../common/post_prelude.php';
 require_once '../common/util.php';
 require_once '../common/game_config.php';
+require_once '../common/database.php';
+require_once '../common/game_config.php';
+require_once '../common/auth.php';
 
 // Validate arguments.
-$email = nonempty_post_arg('email');
+
 $game_type_id_string = nonempty_post_arg('game-type-id');
 $game_type_id = intval($game_type_id_string);
 $picked_number_string = nonempty_post_arg('picked-number');
@@ -20,16 +23,15 @@ assert_or_die(
     HttpCode::BAD_REQUEST, "Field 'picked-number' is not valid."
 );
 
-require_once '../common/database.php';
-require_once '../common/game_config.php';
-
-$db = open_db();
-
 try {
+    $user = userdata_from_post();
+
+    $db = open_db();
+
     $db->beginTransaction();
 
     // Lock player's row and verify if they're allowed to participate
-    $player = select_player_for_update_or_null($db, $email);
+    $player = select_player_for_update_or_null($db, $user);
     assert_or_die(!is_null($player), HttpCode::NOT_FOUND, "Player not found.");
 
     $new_balance = round($player['balance'] - $BET_AMOUNT, 2);
@@ -179,32 +181,33 @@ try {
             HttpCode::INTERNAL_SERVER_ERROR, "Minimum query returned no rows."
         );
         if (is_null($row[0])) {
-            $new_winner_number = null;
+            $winner_number = null;
         } else {
-            $new_winner_number = intval($row[0]);
+            $winner_number = intval($row[0]);
         }
 
         // Calculate winner number and player.
-        if (is_null($new_winner_number)) {
+        if (is_null($winner_number)) {
             $winner_player_email = null;
-        } else if ($new_winner_number == $picked_number) {
-            $winner_player_email = $email;
+            $winner_player_id = null;
         } else {
             $stmt = $db->prepare(
-                "SELECT email FROM player, game_picked_numbers" .
+                "SELECT player.player_id, email" .
+                "  FROM player, game_picked_numbers" .
                 "  WHERE game_type_id=:game_type_id AND" .
                 "      picked_number=:picked_number" .
                 "    AND player.player_id=game_picked_numbers.player_id"
             );
             $stmt->bindParam(':game_type_id', $game_type_id);
-            $stmt->bindParam(':picked_number', $new_winner_number);
+            $stmt->bindParam(':picked_number', $winner_number);
             checked_execute_query($stmt);
             $row = $stmt->fetch(PDO::FETCH_NUM);
             assert_or_die(
                 $row !== false,
                 HttpCode::INTERNAL_SERVER_ERROR, "Winner email not found."
             );
-            $winner_player_email = $row[0];
+            $winner_player_id = $row[0];
+            $winner_player_email = $row[1];
         }
 
         // Reset game_picked_numbers.
@@ -223,7 +226,7 @@ try {
             "  WHERE game_id=:game_id"
         );
         $stmt->bindParam(':winner_player_email', $winner_player_email);
-        $stmt->bindParam(':winner_number', $new_winner_number);
+        $stmt->bindParam(':winner_number', $winner_number);
         $stmt->bindParam(':game_id', $game_id);
         checked_execute_query($stmt);
 
@@ -240,10 +243,10 @@ try {
         if (!is_null($winner_player_email)) {
             $stmt = $db->prepare(
                 "UPDATE player" .
-                "  SET balance=balance + :amount" .
-                "  WHERE email=:email"
+                "  SET balance = balance + :amount" .
+                "  WHERE player_id=:player_id"
             );
-            $stmt->bindParam(':email', $winner_player_email);
+            $stmt->bindParam(':player_id', $winner_player_id);
             $amount = $BET_AMOUNT * $total_num_players;
             $stmt->bindParam(':amount', $amount);
             checked_execute_query($stmt);
