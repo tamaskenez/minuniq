@@ -11,7 +11,7 @@ function userdata_from_google_id_token($google_id_token)
     $client = new Google_Client(['client_id' => $CLIENT_ID]);
     $payload = $client->verifyIdToken($google_id_token);
     assert_or_die($payload !== FALSE,
-        HttpCode::FORBIDDEN, "gogle-id-token verification failed.");
+        HttpCode::FORBIDDEN, "google-id-token verification failed.");
     assert_or_die(array_key_exists('sub', $payload),
         HttpCode::INTERNAL_SERVER_ERROR, "payload.sub not set.");
     assert_or_die(array_key_exists('email', $payload),

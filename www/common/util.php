@@ -121,4 +121,18 @@ function nonempty_post_arg_or_null($name)
     return $r;
 }
 
+function nonempty_get_arg_or_null($name)
+{
+    if (!array_key_exists($name, $_GET)) {
+        return null;
+    }
+
+    $r = htmlspecialchars(strip_tags($_GET[$name]));
+    if ($r == "") {
+        return null;
+    }
+
+    return $r;
+}
+
 ?>

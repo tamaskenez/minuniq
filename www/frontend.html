@@ -116,9 +116,10 @@
           });
         if (response.ok) {
           const r = await response.json();
-          console.log("result: %o", r);
+          console.log("fetch_get OK result: %o", r);
           return r;
         } else {
+          console.log("fetch_get ERROR " + response.status);
           throw await httpErrorFromResponse(response);
         }
       }
@@ -141,9 +142,10 @@
             return null;
           }
           const r = await response.json();
-          console.log("result: %o", r);
+          console.log("fetch_post OK result: %o", r);
           return r;
         } else {
+          console.log("fetch_post ERROR " + response.status);
           throw await httpErrorFromResponse(response);
         }
       }
@@ -242,10 +244,20 @@
         await async_sign_in(user);
       }
 
-      async function update_game(game_id, picked_number) {
-        let game = await fetch_get('api/query-game.php', {
-          'game-id': game_id
-        });
+      async function long_poll_game(game_id, picked_number, num_players) {
+        try {
+          const game = await fetch_get('api/query-game.php', {
+            'game-id': game_id,
+            'known-num-players': num_players
+          });
+          await update_game_with_fetched_data(game_id, picked_number, game);
+          update_game_table(g_logged_in_user.email, g_game_types, g_game_states);
+        } catch(e) {
+          alert("Error during long poll: " + e.message);
+        }
+      }
+
+      async function update_game_with_fetched_data(game_id, picked_number, game) {
         const game_type_id = game['game-type-id'];
         let game_state = null;
         if (game.finished) {
@@ -258,9 +270,17 @@
           }
         } else {
           const num_players = game['num-players'];
+          long_poll_game(game_id, picked_number, num_players);
           game_state = new OngoingGame(game_id, picked_number, num_players);
         }
         g_game_states[game_type_id] = game_state;
+      }
+
+      async function update_game(game_id, picked_number) {
+        let game = await fetch_get('api/query-game.php', {
+          'game-id': game_id
+        });
+        await update_game_with_fetched_data(game_id, picked_number, game);
       }
 
       function user_to_args(user) {
