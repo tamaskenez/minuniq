@@ -45,9 +45,10 @@ challenges:
 
 - Managing simultaneous interacting requests (join-game requests) which
   require synchronization/locking.
-- Identifying how the backend can be organized to provide scalability.
 - Real-time data stream for the client (increasing number of players
   and announcing winner for a game the client has joined in)
+- Identifying how the backend can be organized to provide scalability (this has
+  not been implemented).
 
 ## Design choices
 
@@ -64,7 +65,7 @@ The database is MySql because the RDBMS data model fits well with the nature of
 the data we need to store in game. It contains 4 tables:
 
 - the `player` table (PK: player_id) contains the player's account data and
-  balance, also indexed by email.
+  balance, also indexed by google-user-id (from the authentication service).
 - the `current_game` (PK: game_type_id) table contains only 3 lines for the 3
   types of games. It keeps track of the currently ongoing games' number of
   joined players and the game ids.

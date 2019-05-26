@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="UTF-8">
-    <title>Min-uniq front-end</title>
+    <title>MinUniq Test Frontend</title>
     <style>
       td {
         text-align: center;
@@ -33,6 +33,12 @@
       </dl>
     </div>
     <div id="div-logged-in" hidden>
+      <ul><i>
+        <li>Top-up your balance.</li>
+        <li>Select a game, pick a number (1-9999) and click JOIN.</li>
+        <li>Wait for others to join. Try the 'triad' so you don't have to wait too much.</li>
+        <li>When all the required number of opponents have joined the winner will be the one with the smallest but unique number.</li>
+      </i></ul>
       <label for="email" id="lbl_email">Logged in as: </label>
       <input type="text" id="email-logged-in" disabled="true">
       <button type="button" id="btn_login" onclick="onclick_btn_logout()">Logout</button>
@@ -188,6 +194,11 @@
         await async_sign_in(user);
       }
 
+      async function async_update_balance(user) {
+        const player = await get_player(user);
+        set_balance(player.balance);
+      }
+
       async function async_sign_in(user) {
         let player;
         try {
@@ -244,23 +255,26 @@
         await async_sign_in(user);
       }
 
-      function promise_sleep(ms) {
+      function async_sleep(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
       }
 
-      async function promise_long_poll_game(game_id, picked_number, num_players) {
+      async function async_long_poll_game(game_id, picked_number, num_players) {
         while (true) {
           try {
             const game = await fetch_get('api/query-game.php', {
               'game-id': game_id,
               'known-num-players': num_players
             });
-            await update_game_with_fetched_data(game_id, picked_number, game);
-            update_game_table(g_logged_in_user.email, g_game_types, g_game_states);
+            update_game_with_fetched_data(game_id, picked_number, game)
+            .then(function() {
+              update_game_table(g_logged_in_user.email, g_game_types, g_game_states);
+            });
+            async_update_balance(g_logged_in_user);
             return;
           } catch(e) {
             console.log("Error during long poll: " + e.message);
-            await promise_sleep(2000);
+            await async_sleep(2000);
             console.log("continue long poll");
           }
         }
@@ -279,7 +293,7 @@
           }
         } else {
           const num_players = game['num-players'];
-          promise_long_poll_game(game_id, picked_number, num_players);
+          async_long_poll_game(game_id, picked_number, num_players);
           game_state = new OngoingGame(game_id, picked_number, num_players);
         }
         g_game_states[game_type_id] = game_state;
@@ -309,16 +323,17 @@
         args['game-type-id'] = game_type_id;
         args['picked-number'] = picked_number;
         let result = await fetch_post('api/join-game.php', args, true);
-        await update_game(result['game-id'], picked_number);
-        update_game_table(user.email, g_game_types, g_game_states);
+        async_update_balance(user);
+        update_game(result['game-id'], picked_number).then(function() {
+          update_game_table(user.email, g_game_types, g_game_states);
+        });
       }
 
       async function async_top_up(user) {
         let args = user_to_args(user);
         args.amount = TOP_UP_FIXED_AMOUNT;
         await fetch_post('api/top-up-balance.php', args, false);
-        const player = await get_player(user);
-        set_balance(player.balance);
+        async_update_balance(user);
       }
 
       function onclick_top_up() {
@@ -425,8 +440,8 @@
             } else {
               join_html = 'Joined with number ' + gs.picked_number;
             }
-            last_html = 'Waiting for ' + players_left
-              + ((players_left == 1) ? ' player' : ' players');
+            last_html = 'Waiting for ' + players_left + ' more '
+              + ((players_left == 1) ? ' player' : ' players') + ' to join';
           } else if (gs instanceof FinishedGame) {
             join_html = `Your number: <input type="text" size="4" id="join-number-${i}">`
               + `<button id="btn-join-${i}" onclick="onclick_join_game(${i})">`

@@ -36,7 +36,7 @@ try {
 
     $new_balance = round($player['balance'] - $BET_AMOUNT, 2);
     assert_or_die(
-        $new_balance > 0,
+        $new_balance >= 0,
         HttpCode::PAYMENT_REQUIRED, "Insufficient balance."
     );
 
