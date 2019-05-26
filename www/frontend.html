@@ -244,16 +244,25 @@
         await async_sign_in(user);
       }
 
-      async function long_poll_game(game_id, picked_number, num_players) {
-        try {
-          const game = await fetch_get('api/query-game.php', {
-            'game-id': game_id,
-            'known-num-players': num_players
-          });
-          await update_game_with_fetched_data(game_id, picked_number, game);
-          update_game_table(g_logged_in_user.email, g_game_types, g_game_states);
-        } catch(e) {
-          alert("Error during long poll: " + e.message);
+      function promise_sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+      }
+
+      async function promise_long_poll_game(game_id, picked_number, num_players) {
+        while (true) {
+          try {
+            const game = await fetch_get('api/query-game.php', {
+              'game-id': game_id,
+              'known-num-players': num_players
+            });
+            await update_game_with_fetched_data(game_id, picked_number, game);
+            update_game_table(g_logged_in_user.email, g_game_types, g_game_states);
+            return;
+          } catch(e) {
+            console.log("Error during long poll: " + e.message);
+            await promise_sleep(2000);
+            console.log("continue long poll");
+          }
         }
       }
 
@@ -270,7 +279,7 @@
           }
         } else {
           const num_players = game['num-players'];
-          long_poll_game(game_id, picked_number, num_players);
+          promise_long_poll_game(game_id, picked_number, num_players);
           game_state = new OngoingGame(game_id, picked_number, num_players);
         }
         g_game_states[game_type_id] = game_state;

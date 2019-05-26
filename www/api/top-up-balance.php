@@ -1,9 +1,10 @@
 <?php
 
-require '../common/post_prelude.php';
 require_once '../common/util.php';
 require_once '../common/database.php';
 require_once '../common/auth.php';
+
+add_post_headers();
 
 $amount = nonempty_post_arg('amount');
 $amount_float = floatval($amount);

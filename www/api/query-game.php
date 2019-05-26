@@ -1,9 +1,10 @@
 <?php
 
-require '../common/get_prelude.php';
 require_once '../common/util.php';
 require_once '../common/game_config.php';
 require_once '../common/database.php';
+
+add_get_headers();
 
 $game_id_string = nonempty_get_arg('game-id');
 $game_id = intval($game_id_string);

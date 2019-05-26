@@ -2,11 +2,11 @@
 
 // delete-player is also POST request because in PHP the DELETE requests have
 // inferior support (content parsing).
-require '../common/post_prelude.php';
 require_once '../common/util.php';
 require_once '../common/database.php';
 require_once '../common/auth.php';
 
+add_post_headers();
 
 try {
     $user = userdata_from_post();
@@ -14,6 +14,8 @@ try {
     $db = open_db();
 
     $db->beginTransaction();
+
+    // Lock player row.
     $player = select_player_for_update_or_null($db, $user);
     assert_or_die(
         !is_null($player),

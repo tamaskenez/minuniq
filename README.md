@@ -15,27 +15,24 @@ and conduct MinUniq games.
 
 ## About the author.
 
-This backend has been written solely by me (Tamas Kenez) from
-May 12 - May 26 (2019).
-
-This is my first time I'm implementing web services and backend. Prior to this
-implementation I have never worked with web technologies professionally and
-have not studied them in school.
+This backend has been written by me (Tamas Kenez), May 12 - May 26 (2019).
+This is my first time I'm implementing web services and backend, I have no
+professional experience with backends.
 
 [My resume](https://docs.google.com/document/d/1oq_I7zguXm6MrAvXdvBuX1Cofk7kRXwxY2rI1a6eEcc/edit?usp=sharing)
 
 ## Game play
 
-Players have a balance which they can top-up and use for bets the game. When
-they join a game a fixed amount ($1) will be deducted from their balance as
-their bet. When the game finishes the winner gets all the players' bets. If
+Players have a balance which they can top-up and use it for the bets in the
+game. When they join a game a fixed amount ($1) will be deducted from their
+balance. When the game finishes the winner gets all the other players' bets. If
 there's no winner (no smallest, unique number) the bets are lost.
 
-One game round has a fixed number of players. This backend manages games with
+One game round has a fixed number of players. This backend conducts games with
 3, 13 and 101 players. Players can join a game type (3, 13 or 101) anytime by
 picking a number. They will be assigned to the current, ongoing game of the
-chosen type. If there's no ongoing game, the a new one will be opened. One
-player can participate in one type only once.
+chosen type. If there's no ongoing game, the a new one will be opened. A
+player can bet in the same game only once.
 
 Whenever the sufficient number of players have joined a game the backend
 determines the winner (if there's one) and transfers the prize to the winner's
@@ -71,9 +68,9 @@ the data we need to store in game. It contains 4 tables:
 - the `current_game` (PK: game_type_id) table contains only 3 lines for the 3
   types of games. It keeps track of the currently ongoing games' number of
   joined players and the game ids.
-- the `game_picked_numbers` is a player - game-type relation, additionally
-  storing the picked numbers themselves. It needs to answer these questions:
-  + to determine the winning number, we need to now, which numbers are playing
+- the `game_picked_numbers` stores which player joined which game-type and which
+  number did they pick. It needs to answer these questions:
+  + to determine the winning number, we need to know, which numbers are playing
     in a particular game
   + to determine if a player can join a game, we need to answer whether a player
     has already joined a game. For this reason, it's indexed by
@@ -83,7 +80,8 @@ the data we need to store in game. It contains 4 tables:
   for the ongoing game so we have a valid game_id from the start.
 
 I chose not to enforce foreign keys in the database, because the business logic
-already enforces those and it would make DB operations slower.
+already enforces those and it would make DB operations slower. In a more
+sensitive application (bank) we would need the extra safety.
 
 ### Synchronization
 
@@ -110,17 +108,16 @@ The implementation provides a test suite with the following parts:
   but are building on top of each other.
 - Exhaustive test of the 3-player game (trying all combinations of picked
   numbers).
-- Random tests of 3 the game types (fix fixed seed)
+- Random tests of 3 the game types (fixed random seed)
 
 ## Missing features
 
-- Polling, real-time data stream: the front-end should receive real-time
-  updates about the game state. It can be implemented with polling, long-polling
-  or websockets (best solution).
-- Scalability: the `player` table could be partitioned base on the player's
-  location. The `current_game` and `game_picked_numbers` tables could be
-  extracted into a separate game server backend which could have multiple
-  instances running.
+- The real-time update of participants is implemented by long-polling. A better
+  option would be websockets.
+- Scalability: the backend is implemented as a single database. For scalability
+  the `player` table could be partitioned based on the player's location. The
+  `current_game` and `game_picked_numbers` tables could be extracted into a
+  separate game server backend which could have multiple instances running.
   Players would be initially assigned to the same external game server. When
   the load increases more and more player would be moved out to a second, third,
   etc... instances.
@@ -132,11 +129,11 @@ The implementation provides a test suite with the following parts:
 - Optimization: Using more complex requests could reduce the number
   of requests the frontend is calling.
 - Non-API files and admin operations should be protected in the deployed backend.
-- Unit testing could be done in an isolated way (instead of the current
+- Unit testing should be done in an isolated way (instead of the current
   interleaved way) by supplying snapshots to the tests.
 - Send email to participants when game finished.
 - Google authentication tests are missing.
-- Emails should not be stored. Instead: retrieve email on session start and
-  store with session.
-- Backend should not always call Google Auth services. Instead, use session-id
-  to track which user is logged in.
+- Email addresses should not be stored. Instead: retrieve email on session
+  start and store with session.
+- Backend should not call Google Auth services in each request. Instead, use
+  session-id to track which user is logged in.

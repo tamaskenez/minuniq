@@ -1,13 +1,12 @@
 <?php
 
-require '../common/post_prelude.php';
 require_once '../common/util.php';
 require_once '../common/game_config.php';
 require_once '../common/database.php';
 require_once '../common/game_config.php';
 require_once '../common/auth.php';
 
-// Validate arguments.
+add_post_headers();
 
 $game_type_id_string = nonempty_post_arg('game-type-id');
 $game_type_id = intval($game_type_id_string);
@@ -15,7 +14,8 @@ $picked_number_string = nonempty_post_arg('picked-number');
 $picked_number = intval($picked_number_string);
 
 assert_or_die(
-    is_numeric($game_type_id_string) && array_key_exists($game_type_id, $GAME_TYPES),
+    is_numeric($game_type_id_string)
+      && array_key_exists($game_type_id, $GAME_TYPES),
     HttpCode::BAD_REQUEST, "Field 'game-type-id' is not valid."
 );
 assert_or_die(

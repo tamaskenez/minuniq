@@ -1,10 +1,11 @@
 <?php
 
-require '../common/post_prelude.php';
 require_once '../common/util.php';
 require_once '../common/game_config.php';
 require_once '../common/auth.php';
 require_once '../common/database.php';
+
+add_post_headers();
 
 try {
     $user = userdata_from_post();
