@@ -18,8 +18,8 @@ assert_or_die(
       && array_key_exists($game_type_id, $GAME_TYPES),
     HttpCode::BAD_REQUEST, "Field 'game-type-id' is not valid."
 );
-assert_or_die(
-    is_valid_picked_number($picked_number),
+assert_or_die("$picked_number" == "$picked_number_string"
+    && is_valid_picked_number($picked_number),
     HttpCode::BAD_REQUEST, "Field 'picked-number' is not valid."
 );
 

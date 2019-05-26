@@ -231,6 +231,17 @@ function player_crud_test()
     $r = test_curl_request('POST', 'join-game', $args);
     check($r['response'] == HttpCode::BAD_REQUEST, "$tn/zero picked-number");
 
+    $args = $join_game_args;
+    $args['picked-number'] = 'a';
+    $r = test_curl_request('POST', 'join-game', $args);
+    check($r['response'] == HttpCode::BAD_REQUEST, "$tn/letter picked-number");
+
+    $args = $join_game_args;
+    $args['picked-number'] = '5 a';
+    $r = test_curl_request('POST', 'join-game', $args);
+    check($r['response'] == HttpCode::BAD_REQUEST,
+      "$tn/number plus letter picked-number");
+
     // Delete player from ongoing game.
     $tn = 'delete-player/ongoing game';
 

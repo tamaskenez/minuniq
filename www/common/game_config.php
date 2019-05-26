@@ -26,7 +26,8 @@ function is_valid_picked_number($picked_number)
     global $MAX_PICKED_NUMBER;
     return is_numeric($picked_number)
       && intval($picked_number) == $picked_number
-      && 1 <= $picked_number && $picked_number <= $MAX_PICKED_NUMBER;
+      && 1 <= $picked_number && $picked_number <= $MAX_PICKED_NUMBER
+      && strval(intval($picked_number)) === "$picked_number";
 }
 
 ?>
