@@ -1,0 +1,116 @@
+Why this game
+- challenges: asynchronous, realtime updates, scaling
+- seemed to have more depth than simple db-lookup problems
+
+Game play
+- Players submit a number (1-9999) along with bet
+- winner is the player with the smallest, unique number
+- if there's no such number, nobody wins
+- Fixed number of players (3, 13, 101)
+- Continous games
+
+Initial design:
+- Backend around single RDBMS
+- Single-page frontend (minimal)
+
+Technology choices
+- PHP & MySql on Elastic Beanstalk
+- Javascript
+
+Technology tradeoffs
+- PHP, Javascript: untyped, interpreted, no multithreading
+- Better options: Go, ReasonML
+
+API Design
+- Minimal set of simple requests
+- 3 groups: descriptive, player management, join game
+
+Backend architecture, requests
+
+Backend architecture, DB
+- the `player` table (PK: player_id) contains the player's account data and
+  balance, also indexed by google-user-id (from the authentication service).
+- the `current_game` (PK: game_type_id) table contains only 3 lines for the 3
+  types of games. It keeps track of the currently ongoing games' number of
+  joined players and the game ids.
+- the `game_picked_numbers` stores which player joined which game-type and which
+  number did they pick. It needs to answer these questions:
+  + to determine the winning number, we need to know, which numbers are playing
+    in a particular game
+  + to determine if a player can join a game, we need to answer whether a player
+    has already joined a game. For this reason, it's indexed by
+    (game_type_id, player_id)
+- the `game_history` (PK: game_id) stores the results (winner, winning number)
+  of previous games. Also when a new game starts we already reserve a row here
+  for the ongoing game so we have a valid game_id from the start.
+  I chose not to enforce foreign keys in the database, because the business logic
+  already enforces those and it would make DB operations slower. In a more
+  sensitive application (bank) we would need the extra safety.
+
+Backend architecture, testing
+- single test page
+- non-authenticated accounts for manual tests
+- Create, initialize new database from script and verify tables.
+- Smoke-test of `register-player`/`top-up-balance`/`delete-player` API,
+  verifying the result directly (in a white-box manner).
+- Unit test of all API requests, testing all corner cases. Since certain request
+  make sense only under certain circumstances, the unit tests are not isolated
+  but are building on top of each other.
+- Exhaustive test of the 3-player game (trying all combinations of picked
+  numbers).
+- Random tests of 3 the game types (fixed random seed)
+
+Frontend architecture
+
+Workflow, authentication
+
+Workflow, game play
+
+Workflow, synchronization
+- Any operation modifying player data must lock the player's row in `player`
+  table.
+- Any operation modifying data related to an ongoing game, must lock the row
+  in `current_game`.
+- Operations modifying both player and current game data lock first the `player`
+  row then the `current_game` row to prevent deadlocks. This is used in the
+  `join-game` request.
+
+Circuit breaker
+
+Multithreading ???
+
+Scaling
+- Scalability: the backend is implemented as a single database. For scalability
+  the `player` table could be partitioned based on the player's location. The
+  `current_game` and `game_picked_numbers` tables could be extracted into a
+  separate game server backend which could have multiple instances running.
+  Players would be initially assigned to the same external game server. When
+  the load increases more and more player would be moved out to a second, third,
+  etc... instances.
+
+Further development directions, unfinished parts
+- Non-API files and admin operations should be protected in the deployed backend.
+- Email addresses should not be stored. Instead: retrieve email on session
+  start and store with session.
+- Backend should not call Google Auth services in each request. Instead, use
+  session-id to track which user is logged in.
+
+Further development directions, optimizations
+- The real-time update of participants is implemented by long-polling. A better
+  option would be websockets.
+- Optimization: Using more complex requests could reduce the number
+  of requests the frontend is calling.
+
+Further development directions, monitoring & testing
+- Performance benchmarks: a fixed number of random games would be played on
+  the test server and time would be measured.
+- Performance monitoring: the requests would measure the time it takes to
+  server the them and notify the admin on anomalies.
+- Logs: all transactions could be logged to a NoSql data store.
+- Unit testing should be done in an isolated way (instead of the current
+  interleaved way) by supplying snapshots to the tests.
+- Google authentication tests are missing.
+
+Further development directions,
+- Send email to participants when game finished.
+- More authentication methods
