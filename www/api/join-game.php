@@ -1,5 +1,7 @@
 <?php
 
+require '../common/circuit_breaker.php';
+
 require_once '../common/util.php';
 require_once '../common/game_config.php';
 require_once '../common/database.php';
@@ -258,13 +260,11 @@ try {
 
     http_response_code(HttpCode::OK);
     print json_encode(array("game-id" => $game_id));
-} catch(Exception $exc){
-    http_response_code(503);
-    die(
-        json_encode(
-            array("error" => "Can't execute query.", "message" => $exc->getMessage())
-        )
-    );
+} catch(Exception $exc) {
+    assert_or_die_msg(false, HttpCode::SERVICE_UNAVAILABLE,
+      "Can't execute query.", $exc->getMessage());
 }
+
+circuit_breaker_epilog();
 
 ?>

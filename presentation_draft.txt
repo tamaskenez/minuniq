@@ -114,3 +114,11 @@ Further development directions, monitoring & testing
 Further development directions,
 - Send email to participants when game finished.
 - More authentication methods
+
+
+
+Scalable & robust:
+
+
+- L locations
+- U joins per sec

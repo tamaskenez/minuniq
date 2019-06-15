@@ -16,6 +16,7 @@ class HttpCode
 function assert_or_die($condition, $code, $error)
 {
     if (!$condition) {
+        circuit_breaker_epilog();
         http_response_code($code);
         die(json_encode(array("error" => $error)));
     }
@@ -24,6 +25,7 @@ function assert_or_die($condition, $code, $error)
 function assert_or_die_msg($condition, $code, $error, $message)
 {
     if (!$condition) {
+        circuit_breaker_epilog();
         http_response_code($code);
         die(json_encode(array("error" => $error, "message" => $message)));
     }

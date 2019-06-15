@@ -1,5 +1,7 @@
 <?php
 
+require '../common/circuit_breaker.php';
+
 require_once '../common/util.php';
 require_once '../common/auth.php';
 require_once '../common/database.php';
@@ -35,14 +37,11 @@ try {
     );
 
     http_response_code(HttpCode::CREATED);
-} catch(Exception $exc){
-    http_response_code(HttpCode::SERVICE_UNAVAILABLE);
-    die(
-        json_encode(
-            array("error" => "Can't execute query.",
-            "message" => $exc->getMessage())
-        )
-    );
+} catch(Exception $exc) {
+    assert_or_die_msg(false, HttpCode::SERVICE_UNAVAILABLE,
+      "Can't execute query.", $exc->getMessage());
 }
+
+circuit_breaker_epilog();
 
 ?>

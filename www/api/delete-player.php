@@ -1,5 +1,7 @@
 <?php
 
+require '../common/circuit_breaker.php';
+
 // delete-player is also POST request because in PHP the DELETE requests have
 // inferior support (content parsing).
 require_once '../common/util.php';
@@ -48,14 +50,11 @@ try {
     $r = $db->commit();
     assert_or_die($r === true, HttpCode::SERVICE_UNAVAILABLE, "Commit failed.");
     http_response_code(HttpCode::OK);
-} catch(Exception $exc){
-    http_response_code(HttpCode::SERVICE_UNAVAILABLE);
-    die(
-        json_encode(
-            array(
-            "error" => "Can't execute query.", "message" => $exc->getMessage())
-        )
-    );
+} catch(Exception $exc) {
+    assert_or_die_msg(false, HttpCode::SERVICE_UNAVAILABLE,
+      "Can't execute query.", $exc->getMessage());
 }
+
+circuit_breaker_epilog();
 
 ?>
