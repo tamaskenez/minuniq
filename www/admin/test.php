@@ -1,10 +1,11 @@
 <?php
 
+require '../common/circuit_breaker.php';
+
 require_once '../common/util.php';
 require_once '../common/database.php';
 require_once '../common/game_config.php';
 require_once '../common/test_functions.php';
-
 
 function pr($x)
 {
@@ -285,6 +286,32 @@ function static_queries()
     check($jr == $MAX_PICKED_NUMBER, $tn);
 }
 
+function circuit_breaker_test()
+{
+    progress('-- Test circuit breaker.');
+
+    $tn = 'list-game-types';
+    $r = test_curl_request('GET', 'list-game-types', array());
+    check($r['response'] == HttpCode::OK, $tn);
+
+    // Simulate long request.
+    global $SCRIPT_START_TIME, $CIRCUIT_BREAKER_REJECT_SEC,
+      $MAX_SCRIPT_TIME_SEC;
+
+    $SCRIPT_START_TIME = time() - 2 * $MAX_SCRIPT_TIME_SEC;
+    circuit_breaker_epilog();
+
+    $tn = 'list-game-types';
+    $r = test_curl_request('GET', 'list-game-types', array());
+    check($r['response'] == HttpCode::SERVICE_UNAVAILABLE, $tn);
+
+    sleep($CIRCUIT_BREAKER_REJECT_SEC);
+
+    $tn = 'list-game-types';
+    $r = test_curl_request('GET', 'list-game-types', array());
+    check($r['response'] == HttpCode::OK, $tn);
+}
+
 function game_test_with_picked_numbers($game_type_id, $players, $tn)
 {
     progress("-- $tn");
@@ -465,6 +492,7 @@ progress("START TEST.");
 create_and_init_test();
 player_crud_test();
 static_queries();
+circuit_breaker_test();
 game_test_exhaustive_3_and_corners();
 
 foreach ($GAME_TYPES as $k => $v) {
